@@ -1,10 +1,11 @@
 name: CI
 
-# Run on every push to every branch and on all PRs targeting main.
+# Run on PRs targeting main, and on direct pushes to non-main branches.
+# Pushes to main are covered by the PR that merged them — no double runs.
 # Fast feedback — no native builds here (see android-release.yml).
 on:
   push:
-    branches: ['**']
+    branches-ignore: [main]
   pull_request:
     branches: [main]
 
@@ -38,6 +39,8 @@ jobs:
         run: npm run lint
 
       - name: TypeScript type check
+        # Run tsc directly here for fast feedback; vite build also runs tsc
+        # but only after the slow bundling step.
         run: npx tsc --noEmit
 
   # ────────────────────────────────────────────────────────────────────────

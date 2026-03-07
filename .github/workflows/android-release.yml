@@ -1,7 +1,7 @@
 name: Android Release Build
 
 # Produces a signed AAB (Play Store) and a signed APK (sideload/test).
-# Triggered automatically on every push to main, or manually from Actions tab.
+# Triggered automatically after CI passes on main, or manually from Actions tab.
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   RELEASE_KEYSTORE_BASE64   — base64-encoded ironwallsky-release.jks
@@ -15,8 +15,11 @@ name: Android Release Build
 # Encode the keystore locally with:
 #   [Convert]::ToBase64String([IO.File]::ReadAllBytes('ironwallsky-release.jks')) | Set-Clipboard
 on:
-  push:
+  # Only run after CI workflow succeeds on main — real gate, not a placeholder.
+  workflow_run:
+    workflows: [CI]
     branches: [main]
+    types: [completed]
   workflow_dispatch:
     inputs:
       build_apk:
@@ -36,22 +39,14 @@ env:
 
 jobs:
   # ────────────────────────────────────────────────────────────────────────
-  # Gate: CI must be green before we spend time on the native build
-  # ────────────────────────────────────────────────────────────────────────
-  wait-for-ci:
-    name: Wait for CI
-    runs-on: ubuntu-latest
-    steps:
-      - name: CI gate passed
-        run: echo "CI workflow must pass before this job runs (see branch protection rules)"
-
-  # ────────────────────────────────────────────────────────────────────────
-  # Main build job
+  # Main build job — skipped automatically if CI did not succeed
   # ────────────────────────────────────────────────────────────────────────
   build-android:
     name: Build Signed AAB
     runs-on: ubuntu-latest
-    needs: wait-for-ci
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
 
     steps:
       # ── 1. Source ────────────────────────────────────────────────────────
