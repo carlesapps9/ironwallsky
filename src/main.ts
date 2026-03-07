@@ -22,14 +22,24 @@ const storage = createStorageAdapter();
 async function initStorage(): Promise<void> {
   const saved = await storage.load();
   if (saved) {
-    const state = engine.getState() as { highScore: { bestScore: number; dateAchieved: string } };
+    const state = engine.getState() as { highScore: { bestScore: number; dateAchieved: string; dailyStreak: number; lastPlayedDate: string; dailyChallengeCompletedDate: string } };
     state.highScore.bestScore = saved.bestScore;
     state.highScore.dateAchieved = saved.dateAchieved;
+    if (saved.dailyStreak !== undefined) state.highScore.dailyStreak = saved.dailyStreak;
+    if (saved.lastPlayedDate !== undefined) state.highScore.lastPlayedDate = saved.lastPlayedDate;
+    if (saved.dailyChallengeCompletedDate !== undefined) state.highScore.dailyChallengeCompletedDate = saved.dailyChallengeCompletedDate;
     console.log(`[Storage] Loaded high score: ${saved.bestScore}`);
   }
 
   engine.events.on('high-score-beaten', (payload) => {
-    storage.save({ bestScore: payload.newBest, dateAchieved: new Date().toISOString() });
+    const hs = engine.getState().highScore;
+    storage.save({
+      bestScore: payload.newBest,
+      dateAchieved: new Date().toISOString(),
+      dailyStreak: hs.dailyStreak,
+      lastPlayedDate: hs.lastPlayedDate,
+      dailyChallengeCompletedDate: hs.dailyChallengeCompletedDate,
+    });
   });
 }
 

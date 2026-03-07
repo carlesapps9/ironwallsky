@@ -6,18 +6,22 @@ export interface GameClock {
   getCurrentTime(): number;
   /** Returns delta since last tick in ms. */
   getDelta(): number;
+  /** Returns current ISO YYYY-MM-DD date string. Implementation lives in adapter layer (Constitution Principle I). */
+  getDateString(): string;
 }
 
 /**
  * Creates a simulated clock for testing.
  * Time advances only when explicitly ticked.
  */
-export function createSimulatedClock(): GameClock & {
+export function createSimulatedClock(initialDateString = '2000-01-01'): GameClock & {
   tick(deltaMs: number): void;
   reset(): void;
+  setDateString(date: string): void;
 } {
   let currentTime = 0;
   let delta = 0;
+  let dateString = initialDateString;
 
   return {
     getCurrentTime(): number {
@@ -26,6 +30,9 @@ export function createSimulatedClock(): GameClock & {
     getDelta(): number {
       return delta;
     },
+    getDateString(): string {
+      return dateString;
+    },
     tick(deltaMs: number): void {
       delta = deltaMs;
       currentTime += deltaMs;
@@ -33,6 +40,9 @@ export function createSimulatedClock(): GameClock & {
     reset(): void {
       currentTime = 0;
       delta = 0;
+    },
+    setDateString(date: string): void {
+      dateString = date;
     },
   };
 }
@@ -53,6 +63,10 @@ export function createRealClock(): GameClock & {
     },
     getDelta(): number {
       return delta;
+    },
+    getDateString(): string {
+      // Safe: this is the adapter layer — browser Date access is permitted here.
+      return new Date().toISOString().slice(0, 10);
     },
     update(deltaMs: number): void {
       delta = deltaMs;

@@ -43,8 +43,14 @@ export interface EngineCommands {
   /** Resume from pause (foreground + user tap). */
   resumeRun(): void;
 
-  /** Rewarded ad completed — grant continue. */
+  /** Watch to Continue rewarded ad completed — grant one extra life. */
   grantContinue(): void;
+
+  /** Revive Shield rewarded ad completed — restore 1 life, set reviveAvailable = false. */
+  grantRevive(): void;
+
+  /** Score Doubler rewarded ad completed — double displayed session score. bestScore unaffected. */
+  grantScoreDouble(): void;
 }
 
 /** Full engine API exposed to adapters. */
@@ -102,6 +108,7 @@ function createEnemyPool(): Enemy[] {
       enemyType: 'standard',
       active: false,
       collisionMaskIndex: 1,
+      driftPhase: 0,
     });
   }
   return pool;
@@ -117,6 +124,11 @@ function createRun(config: GameConfig, runIndex: number): Run {
     phase: 'starting',
     continueUsed: false,
     runIndex,
+    reviveAvailable: true,
+    doublersUsed: false,
+    comboCount: 0,
+    comboMultiplier: 1.0,
+    comboLastHitElapsedMs: 0,
   };
 }
 
@@ -130,7 +142,7 @@ export function createGameState(
     enemies: createEnemyPool(),
     run: createRun(config, 0),
     config,
-    highScore: { bestScore: 0, dateAchieved: '' },
+    highScore: { bestScore: 0, dateAchieved: '', dailyStreak: 0, lastPlayedDate: '', dailyChallengeCompletedDate: '' },
     rngSeed: seed,
     collisionMasks: [],
     nextEntityId: PROJECTILE_POOL_SIZE + ENEMY_POOL_SIZE + 1,
@@ -197,7 +209,7 @@ export function createEngine(
     events.emit('life-lost', { remaining: state.run.remainingLives });
 
     if (state.run.remainingLives <= 0) {
-      if (!state.run.continueUsed && state.config.rewardedAdEnabled) {
+      if (!state.run.continueUsed && state.config.continueEnabled) {
         transitionPhase('continue-offer');
       } else {
         endRun();
@@ -347,6 +359,16 @@ export function createEngine(
         events.emit('life-lost', { remaining: 1 }); // Update HUD
         transitionPhase('playing');
       }
+    },
+
+    /** T082 — implemented in Phase 10F. Stub satisfies GameEngine interface. */
+    grantRevive(): void {
+      // Full implementation in T082 (Phase 10F)
+    },
+
+    /** T083 — implemented in Phase 10F. Stub satisfies GameEngine interface. */
+    grantScoreDouble(): void {
+      // Full implementation in T083 (Phase 10F)
     },
 
     setCollisionMasks(masks: CollisionMask[]): void {

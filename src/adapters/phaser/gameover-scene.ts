@@ -109,7 +109,7 @@ export class GameOverScene extends Phaser.Scene {
     if (
       run.phase === 'continue-offer' &&
       !run.continueUsed &&
-      config.rewardedAdEnabled
+      config.continueEnabled
     ) {
       this.createContinueButton(cx, cy + 50);
     }

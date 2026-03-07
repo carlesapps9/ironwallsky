@@ -35,18 +35,58 @@ export interface GameConfig {
 
   // Ads
   interstitialCadence: number;
-  rewardedAdEnabled: boolean;
+  /** Gates Watch to Continue rewarded ad. Default: true. */
+  continueEnabled: boolean;
+  /** Gates Revive Shield rewarded ad. Default: true. */
+  reviveEnabled: boolean;
+  /** Gates Score Doubler rewarded ad. Default: true. */
+  doublerEnabled: boolean;
   adTimeoutMs: number;
 
   // Run targets
   targetMinDurationMs: number;
   targetMaxDurationMs: number;
+
+  // Combo multiplier
+  /** ms after last kill before combo resets; default: 2000. */
+  comboWindow: number;
+  /** Multiplier added per consecutive kill; default: 0.1. */
+  comboMultiplierStep: number;
+  /** Maximum score multiplier; default: 3.0. */
+  comboMultiplierCap: number;
+
+  // Enemy type weights (applied when difficulty level unlocks each type)
+  enemyTypeWeights: {
+    standard: number;  // Always 1.0 (baseline)
+    drifter: number;   // Active at level ≥ 3; default: 0.3
+    armored: number;   // Active at level ≥ 6; default: 0.2
+    speeder: number;   // Active at level ≥ 10; default: 0.15
+  };
+
+  // Drifter movement
+  /** Max px horizontal offset for drifter sine-wave; default: 80. */
+  driftAmplitude: number;
+  /** Hz; sine-wave oscillation speed for drifter; default: 1.5. */
+  driftFrequency: number;
+
+  // Remote config
+  /** URL to fetch config JSON at boot; '' = disabled. Default: ''. */
+  remoteConfigUrl: string;
+
+  // Share card
+  /** Template for share text; use {score} placeholder. */
+  scoreTweetTemplate: string;
 }
 
-/** Ad configuration subset. */
+/** Ad configuration subset (per-placement flags replace single rewardedAdEnabled). */
 export interface AdConfig {
   interstitialCadence: number;
-  rewardedAdEnabled: boolean;
+  /** Gates Watch to Continue rewarded ad. */
+  continueEnabled: boolean;
+  /** Gates Revive Shield rewarded ad. */
+  reviveEnabled: boolean;
+  /** Gates Score Doubler rewarded ad. */
+  doublerEnabled: boolean;
   adTimeoutMs: number;
 }
 
@@ -85,12 +125,37 @@ export const DEFAULT_CONFIG: GameConfig = {
 
   // Ads
   interstitialCadence: 2,
-  rewardedAdEnabled: true,
+  continueEnabled: true,
+  reviveEnabled: true,
+  doublerEnabled: true,
   adTimeoutMs: 5000,
 
   // Run targets
   targetMinDurationMs: 45000,
   targetMaxDurationMs: 120000,
+
+  // Combo
+  comboWindow: 2000,
+  comboMultiplierStep: 0.1,
+  comboMultiplierCap: 3.0,
+
+  // Enemy type weights
+  enemyTypeWeights: {
+    standard: 1.0,
+    drifter: 0.3,
+    armored: 0.2,
+    speeder: 0.15,
+  },
+
+  // Drifter movement
+  driftAmplitude: 80,
+  driftFrequency: 1.5,
+
+  // Remote config (disabled by default)
+  remoteConfigUrl: '',
+
+  // Share card
+  scoreTweetTemplate: 'I scored {score} pts in Iron Wall Sky! Can you beat me? 🔥',
 };
 
 /** Fixed timestep for core simulation (60 Hz). */

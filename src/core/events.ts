@@ -54,6 +54,27 @@ export interface HighScoreBeatenEvent {
   previous: number;
 }
 
+// ─── Amendment 2026-03-07: Combo, Revive, Score-Double Events ───
+
+export interface ComboUpdatedEvent {
+  /** Current consecutive-hit count; 0 = combo was reset to baseline. */
+  count: number;
+  /** Current score multiplier; 1.0 = baseline (no bonus). */
+  multiplier: number;
+}
+
+export interface ReviveGrantedEvent {
+  /** Lives remaining after the revive — always 1 per FR-019. */
+  remainingLives: number;
+}
+
+export interface ScoreDoubledEvent {
+  /** New (doubled) displayed session score. Does NOT affect bestScore comparison. */
+  newScore: number;
+  /** Original pre-doubling score. */
+  originalScore: number;
+}
+
 export interface LifeLostEvent {
   remaining: number;
 }
@@ -82,7 +103,10 @@ export type GameEventType =
   | 'life-lost'
   | 'run-phase-changed'
   | 'difficulty-increased'
-  | 'high-score-beaten';
+  | 'high-score-beaten'
+  | 'combo-updated'
+  | 'revive-granted'
+  | 'score-doubled';
 
 /** Maps each event type to its payload shape. */
 export interface GameEventMap {
@@ -98,6 +122,9 @@ export interface GameEventMap {
   'run-phase-changed': RunPhaseChangedEvent;
   'difficulty-increased': DifficultyIncreasedEvent;
   'high-score-beaten': HighScoreBeatenEvent;
+  'combo-updated': ComboUpdatedEvent;
+  'revive-granted': ReviveGrantedEvent;
+  'score-doubled': ScoreDoubledEvent;
 }
 
 // ─── Event Bus Interface ───

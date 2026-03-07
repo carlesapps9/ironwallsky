@@ -9,8 +9,8 @@ export interface Vec2 {
 /** Unique entity identifier (sequential integer, no GC-inducing strings). */
 export type EntityId = number;
 
-/** Enemy type identifier for v1 (single type; extensible for variants). */
-export type EnemyType = 'standard';
+/** Enemy type identifier — variants unlock progressively by difficulty level. */
+export type EnemyType = 'standard' | 'drifter' | 'armored' | 'speeder';
 
 /** Represents the defender at the bottom of the screen. */
 export interface Player {
@@ -42,6 +42,8 @@ export interface Enemy {
   enemyType: EnemyType;
   active: boolean;
   collisionMaskIndex: number;
+  /** Radians; incremented each step for drifter sine-wave; 0 for all others. */
+  driftPhase: number;
 }
 
 /** Pre-computed bitmask for pixel-perfect collision. */
@@ -70,12 +72,28 @@ export interface Run {
   phase: RunPhase;
   continueUsed: boolean;
   runIndex: number;
+  /** True at run start; false after Revive Shield rewarded ad consumed. */
+  reviveAvailable: boolean;
+  /** False at run start; true after Score Doubler rewarded ad consumed. */
+  doublersUsed: boolean;
+  /** Consecutive kills without a miss. Reset when comboLastHitElapsedMs > comboWindow. */
+  comboCount: number;
+  /** Current score multiplier (1.0 baseline). Never exceeds comboMultiplierCap. */
+  comboMultiplier: number;
+  /** ms elapsed since last kill; incremented by dt each step via dt accumulator — NEVER setTimeout. */
+  comboLastHitElapsedMs: number;
 }
 
-/** Persisted high score data. */
+/** Persisted high score data (v2 — backward-compatible with v1). */
 export interface HighScoreRecord {
   bestScore: number;
-  dateAchieved: string; // ISO 8601
+  dateAchieved: string;               // ISO 8601
+  dailyStreak: number;                // Consecutive play days; 0 if never played.
+  lastPlayedDate: string;             // ISO YYYY-MM-DD; '' if never played.
+  dailyChallengeCompletedDate: string;// ISO YYYY-MM-DD; '' if not completed.
+  // TODO(daily-challenge): dailyChallengeCompletedDate is persisted but no challenge
+  // mechanic is defined yet — implement when a future spec defines the trigger,
+  // validation, and reward.
 }
 
 /** Root state object that the core engine owns. */
