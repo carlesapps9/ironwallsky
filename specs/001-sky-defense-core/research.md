@@ -226,3 +226,180 @@ Both adapters lazy-loaded via dynamic import() on first ad request.
 | iOS memory constraint? | 150 MB hard limit on WKWebView — monitor textures |
 | Ad SDK for native vs web? | Native: @capacitor-community/admob; Web: Google Ad Manager |
 | AdMob web ads in WebView? | **Prohibited by Google policy** — must use native SDK |
+| Rewarded ad placement during gameplay? | **Constitution Rule 28 violation** — all rewarded prompts moved to game-over screen (see §12) |
+| Multiple rewarded placements per run? | Yes, if independently gated by separate boolean flags; FR-019 updated to enumerate three named placements |
+| Remote config without server? | Static JSON on existing GitHub Pages host; fetch with AbortController timeout; silent-fallback |
+| Drifter horizontal oscillation? | Per-frame `amplitude × sin(2π × freq × elapsedMs / 1000)` in movement.ts; `elapsedMs` added to Enemy entity |
+
+---
+
+## 7. Enemy Variety: Behavior Differentiation
+
+**Amendment**: 2026-03-07
+
+**Decision**: Four enemy types differentiated by movement pattern and stats, selection weighted by current difficulty level.
+
+**Rationale**: A single enemy type makes runs predictable after a few plays. Progressive unlocking (type appears only above a difficulty threshold) ensures new mechanics are introduced when the player has already mastered the basics, avoiding tutorial overload. Weights are designed so the majority of enemies remain `standard` at all difficulty levels — new types are surprise introductions, not replacements.
+
+| Type | Unlocks at level | Weight among active types | Stat modifiers | Movement |
+|------|-----------------|--------------------------|----------------|----------|
+| `standard` | 0 | Always majority | base | Straight down |
+| `drifter` | 3 | 20 % | base | Sine-wave horizontal drift, `amplitude = worldWidth * 0.15`, `frequency = 0.4 Hz` |
+| `armored` | 6 | 20 % | `health × 3` | Straight down |
+| `speeder` | 10 | 20 % | `velocity.y × 3`, hitbox margin 8 px | Straight down |
+
+**Drifter oscillation implementation**: `velocity.x = amplitude × sin(2π × frequency × enemy.elapsedMs / 1000)` computed in `movement.ts` each tick. Requires `elapsedMs: number` field on `Enemy` (incremented by dt each tick). Spawner sets initial `velocity.x = 0`; movement system owns all oscillation updates. This preserves core isolation — the spawner only configures constants; movement is stateless per-tick computation.
+
+**Alternatives Considered**:
+
+| Alternative | Rejected Because |
+|-------------|------------------|
+| Random behavior at any difficulty | Too chaotic early; damages learning curve |
+| Additional EnemyType = `elite` boss variant | Scope creep for v1; requires balancing effort; deferred to future spec |
+| Different projectile types per enemy | Adds bidirectional gameplay; inconsistent with "aim is always straight up" spec contract |
+
+---
+
+## 8. Combo Multiplier System
+
+**Amendment**: 2026-03-07
+
+**Decision**: Time-windowed streak multiplier. Steps: `[1×, 2×, 3×, 5×, 10×]`. Window: 1 500 ms reset on each kill. Breaks on window expiry or life-loss.
+
+**Rationale**: Combo systems are the single most cost-effective engagement mechanic for score-chase games — they reward skilled positioning without requiring new input mechanics. A 1 500 ms window is long enough for deliberate play (rapid drag-and-position) but short enough that passive players won't maintain combos. The non-linear step sequence (`1→2→3→5→10`) front-loads feels of progress then delivers an outsized reward for long streaks, creating a visible asymmetric goal.
+
+**Score consistency**: `scoreAwarded` is multiplied in `scoring.ts`; the base `scoreValue` per enemy is unchanged. `bestScore` comparison uses the post-multiplier score — multiplied scores ARE valid personal bests, which incentivizes combo maintenance over raw survival.
+
+**Alternatives Considered**:
+
+| Alternative | Rejected Because |
+|-------------|------------------|
+| Linear multiplier (1, 2, 3, 4, …) | Less satisfying; no "big jump" moment at 10× |
+| Kill-count-only (no time window) | Trivially maintained; no skill differentiation |
+| Multiplier resets only on life-loss | Too easy to maintain; reduces tension |
+
+---
+
+## 9. Daily Challenge & Streak
+
+**Amendment**: 2026-03-07
+
+**Decision**: Client-side daily challenge using date-derived RNG seed (`YYYYMMDD` as integer). Streak tracked with `lastPlayedDate` + `dailyChallengeCompletedDate` in `HighScoreRecord`.
+
+**Rationale**: A daily challenge creates a daily return reason without any server infrastructure (Principle IX). The seed is derived from the current date — all players who play on the same calendar day receive the same enemy spawn sequence, enabling social comparison ("what score did you get today?"). The `dailyChallengeCompletedDate` guard prevents infinite replays on the same day, preserving the "special event" character.
+
+**Streak logic** (in `storage-adapter.ts`):
+- `lastPlayedDate === yesterday` → increment `dailyStreak`
+- `lastPlayedDate === today` → no change (already counted)
+- `lastPlayedDate` older or empty → reset `dailyStreak = 1`
+- Always update `lastPlayedDate = today`
+
+**Completion guard** (analysis finding M2): `dailyChallengeCompletedDate` is set when the player finishes a daily challenge run. At boot, if `dailyChallengeCompletedDate === today` the "DAILY CHALLENGE" banner is suppressed, showing "Challenge Complete" instead.
+
+**Alternatives Considered**:
+
+| Alternative | Rejected Because |
+|-------------|------------------|
+| Server-generated seed | Requires server infrastructure; violates Principle IX |
+| Leaderboard for daily scores | Requires server + auth; out of scope for v1 |
+| Weekly challenge (7-day seed) | Less return frequency; daily is the standard for mobile games |
+
+---
+
+## 10. Remote Config via Static JSON
+
+**Amendment**: 2026-03-07
+
+**Decision**: Fetch `docs/remote-config.json` served from GitHub Pages at boot. 3 s `AbortController` timeout. Shallow-merge into `DEFAULT_CONFIG`. Silent fallback on any failure.
+
+**Rationale**: FR-020 requires ad cadence to be configurable without a code change. A static JSON file on the existing GitHub Pages host costs nothing and requires zero new infrastructure. The file is already served (GitHub Pages hosts `docs/`). The 3 s timeout is conservative — allow time for slow mobile connections while never blocking gameplay. Rate of access: one identical request per app launch, small file (~200 bytes), well within Pages rate limits.
+
+**Fields exposed via remote config** (analysis finding L2):
+
+```json
+{
+  "interstitialCadence": 2,
+  "rewardedAdEnabled": true,
+  "adTimeoutMs": 5000
+}
+```
+
+**Deployment note**: Remote config JSON must be deployed and Pages must be live before the Android release. First boot will 404 and use defaults until Pages propagates (~5 min after push to `main`).
+
+**Alternatives Considered**:
+
+| Alternative | Rejected Because |
+|-------------|------------------|
+| Firebase Remote Config | Requires Firebase project, SDK (~40 kB), service account — violates Principle IX |
+| localStorage-cached config | Cannot be updated without user clearing storage |
+| URL query parameter flags | Exposes config to end users; not ergonomic for non-technical operators |
+
+---
+
+## 11. Share Card
+
+**Amendment**: 2026-03-07
+
+**Decision**: Offscreen `HTMLCanvasElement` (360 × 640 px) rendered in JavaScript. Web Share API (`navigator.share({ files })`) with `<a download>` web fallback. Native (Capacitor) path uses `@capacitor/filesystem` write + system share sheet.
+
+**Rationale**: A native-quality share image drives organic distribution — the spec's US3 "clip-friendly" requirement. The Canvas API requires no external dependencies and works offline. Three environments require three paths (analysis finding M1):
+
+| Environment | Strategy |
+|-------------|----------|
+| Web + Share API support | `navigator.share({ files: [pngBlob] })` |
+| Web + no Share API | `<a href download>` temporary link + `click()` |
+| Capacitor native (Android/iOS) | `Filesystem.writeFile()` to `Documents` + `Share.share({ url })` via `@capacitor/share` |
+
+**`@capacitor/share` is already available** in the Capacitor ecosystem and does not add a new external dependency constraint — it is a first-party Capacitor plugin (peer dep of existing `@capacitor/core`). Must be added only to the native project, not bundled into web JS.
+
+**Trigger conditions** (analysis finding L3): `peakCombo` is session-only (not persisted). The Share button appears when `high-score-beaten` fires OR `peakCombo > 5` at run end. This is intentionally transient — the share opportunity applies to the session's achievement.
+
+**Alternatives Considered**:
+
+| Alternative | Rejected Because |
+|-------------|------------------|
+| Third-party screenshot SDK | New dependency; violates Principle IX |
+| Server-side OG image generation | Infrastructure; violates Principle IX |
+| Clipboard copy of text score | Less visual; not share-worthy in feeds |
+
+---
+
+## 12. Three Rewarded Ad Placements — Constitutionality
+
+**Amendment**: 2026-03-07 | Resolves analysis findings C1, C2, C3
+
+**Decision**: Three named placements, all on the game-over screen, each gated by an independent boolean flag reset at run start.
+
+**Constitutionality resolution (C1 — Rule 28)**:
+The original design placed the Revive Shield prompt mid-gameplay (pulsing icon on defense line during active play). Rule 28 prohibits ad triggers during active gameplay. **Resolution**: The Revive Shield is now offered exclusively on the game-over screen. The trigger condition is `run.reviveAvailable === true AND this was the player's first life-loss (lives went from maxLives-1 to 0 on the lethal breach)`. This is detectable in the game-over scene via a new `wasFirstLifeLoss: boolean` field on the run-ended event. No mid-gameplay UI is required.
+
+**Flag logic (C3 — corrected)**:
+
+| Placement | Guard flag | Button shown when | Effect |
+|-----------|-----------|------------------|--------|
+| Watch to Continue | `continueUsed === false` | After any game over (if not used this run) | Resumes run with +1 life |
+| Revive Shield | `reviveAvailable === true` | After game over caused by first life-loss | Restores run with lives reset to `maxLives - 1` |
+| Score Doubler | `doublersUsed === false AND continueUsed === false` | After final game-over (no continue used) | Multiplies displayed score × 2 |
+
+Three flags are *independent*. A player who used Revive Shield (setting `reviveAvailable = false`) can still access Watch to Continue on the next game over in the same run. A player who used Watch to Continue (`continueUsed = true`) cannot access Score Doubler on that game-over.
+
+**FR-019 amendment (C2)**: The spec was updated to enumerate all three placements explicitly, removing the ambiguous "once per run" language and replacing it with three independently-gated named placements.
+
+---
+
+## 13. Difficulty Retuning — T032 vs ENG-002
+
+**Amendment**: 2026-03-07 | Resolves analysis finding H3
+
+**Decision**: ENG-002 values supersede T032 values. T032 was marked complete but the 45–120 s target was not independently verified with a measured profiling session before the amendment.
+
+**Rationale**: The introduction of three new enemy types (particularly `speeder` at level 10 with 3× velocity) substantially changes the difficulty curve's effective ceiling. Even if T032 achieved the 45–120 s target with a single enemy type, adding a `speeder` that arrives 3× faster compresses the endgame significantly. ENG-002 retuning accounts for multi-type balancing:
+
+| Config key | T032 value | ENG-002 value | Reason for change |
+|------------|-----------|---------------|-------------------|
+| `difficultyStepIntervalMs` | 8 000 ms | 5 000 ms | Faster ramp to expose new types sooner; `speeder` at level 10 needs to be reachable within 60 s |
+| `maxDifficultyLevel` | 15 | 12 | Fewer levels needed when each level now changes both spawner weights AND enemy type; prevents over-ramp |
+| `healthIncrementPerStep` | 0 | 1 | `armored` already has 3× base health; adding linear health growth on top provides late-game squeeze |
+| `spawnRateMultiplierPerStep` | 0.92 | 0.88 | More aggressive ramp compensates for reduced level count |
+
+**Verification requirement**: After implementing ENG-002, run 10 timed playtests at "average skill" (no deliberate positioning optimization). Median duration must be 45–120 s. If it falls below 45 s, increase `difficultyStepIntervalMs` or `spawnRateMultiplierPerStep`. If above 120 s, tighten further. Document results in a comment in `src/core/config.ts`.

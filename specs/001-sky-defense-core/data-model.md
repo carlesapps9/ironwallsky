@@ -211,7 +211,9 @@ interface GameConfig {
 
   // Ads
   interstitialCadence: number;   // Default: 2 (every N runs)
-  rewardedAdEnabled: boolean;    // Default: true
+  continueEnabled: boolean;      // Default: true — gates Watch to Continue rewarded ad
+  reviveEnabled: boolean;        // Default: true — gates Revive Shield rewarded ad
+  doublerEnabled: boolean;       // Default: true — gates Score Doubler rewarded ad
   adTimeoutMs: number;           // Default: 5000
 
   // Run
@@ -234,10 +236,16 @@ and to enable runtime override via remote config.
 ```typescript
 interface AdConfig {
   interstitialCadence: number;
-  rewardedAdEnabled: boolean;
+  continueEnabled: boolean;  // gates Watch to Continue; default: true
+  reviveEnabled: boolean;    // gates Revive Shield; default: true
+  doublerEnabled: boolean;   // gates Score Doubler; default: true
   adTimeoutMs: number;
 }
 ```
+
+> **Amendment 2026-03-07**: `rewardedAdEnabled` (single boolean) replaced by three
+> independent per-placement flags so each rewarded ad can be remotely toggled
+> without affecting the others. All three default to `true`. Migrated in T081.
 
 ---
 
@@ -325,3 +333,105 @@ in [contracts/game-events.md](contracts/game-events.md)).
 | `run-phase-changed` | `{ from: RunPhase, to: RunPhase }` | State transition |
 | `difficulty-increased` | `{ level: number }` | Difficulty stepped up |
 | `high-score-beaten` | `{ newBest: number, previous: number }` | New personal best |
+| `combo-updated` | `{ count: number, multiplier: number }` | Combo hit-count changes |
+| `revive-granted` | `{ remainingLives: number }` | Revive Shield rewarded ad completed |
+| `score-doubled` | `{ newScore: number, originalScore: number }` | Score Doubler rewarded ad completed |
+
+---
+
+## Amendment: 2026-03-07 — Data Model Delta
+
+**Source**: [specs/main/plan.md](../main/plan.md) | Validated against constitution v1.0.0
+
+### EnemyType (extended)
+
+```typescript
+// Before: type EnemyType = 'standard';
+// After:
+type EnemyType = 'standard' | 'drifter' | 'armored' | 'speeder';
+```
+
+| Type | Unlocks at level | Movement | Health | Speed |
+|------|-----------------|----------|--------|-------|
+| standard | 0 | straight down | 1× | 1× |
+| drifter | 3 | sine-wave horizontal drift | 1× | 1× |
+| armored | 6 | straight down; flashes on intermediate hits | 3× | 1× |
+| speeder | 10 | straight down | 1× | 3× |
+
+### Enemy (new field)
+
+```typescript
+interface Enemy {
+  // ... all existing fields unchanged ...
+  driftPhase: number; // NEW — radians; incremented per step for drifter; 0 for others
+}
+```
+
+### Run (new fields)
+
+```typescript
+interface Run {
+  // ... all existing fields unchanged ...
+  reviveAvailable: boolean;     // NEW — true at run start; false after Revive Shield consumed
+  doublersUsed: boolean;        // NEW — false at run start; true after Score Doubler consumed
+  comboCount: number;           // NEW — consecutive kills; reset after comboWindow ms with no kill
+  comboMultiplier: number;      // NEW — current score multiplier (1.0 baseline)
+  comboLastHitElapsedMs: number; // NEW — ms since last kill; incremented by dt each step;
+                                //        combo resets when value exceeds comboWindow;
+                                //        NEVER implement via setTimeout (constitution rule 7)
+}
+```
+
+**FSM amendment** — `continue-offer` phase now hosts all 3 rewarded-ad placements:
+
+| Phase | Buttons shown (each gated by its flag) |
+|-------|-----------------------------------------|
+| `continue-offer` | Watch to Continue (`!continueUsed`), Revive Shield (`reviveAvailable`), Score Doubler (`!doublersUsed`), Share Card |
+| `game-over` | Share Card only |
+
+### HighScoreRecord (new fields)
+
+```typescript
+interface HighScoreRecord {
+  bestScore: number;                       // existing
+  dateAchieved: string;                    // existing — ISO 8601
+  dailyStreak: number;                     // NEW — consecutive play days; 0 if never played
+  lastPlayedDate: string;                  // NEW — ISO YYYY-MM-DD; '' if never played
+  dailyChallengeCompletedDate: string;     // NEW — ISO YYYY-MM-DD; '' if not completed
+}
+```
+
+**Storage migration**: on read, if `dailyStreak === undefined` (v1 record), initialise all new fields to defaults (`0` / `''` / `''`) and persist immediately.
+
+### GameConfig (new fields)
+
+```typescript
+interface GameConfig {
+  // ... all existing fields unchanged ...
+  comboWindow: number;          // NEW — ms to reset combo after no kill; default: 2000
+  comboMultiplierStep: number;  // NEW — bonus added per consecutive kill; default: 0.1
+  comboMultiplierCap: number;   // NEW — maximum multiplier; default: 3.0
+  enemyTypeWeights: {           // NEW — weighted probability per type
+    standard: number;           //   always 1.0 (baseline, never gated)
+    drifter: number;            //   active at difficulty level ≥ 3; default: 0.3
+    armored: number;            //   active at difficulty level ≥ 6; default: 0.2
+    speeder: number;            //   active at difficulty level ≥ 10; default: 0.15
+  };
+  remoteConfigUrl: string;      // NEW — URL to fetch config JSON; '' = disabled
+  scoreTweetTemplate: string;   // NEW — share text template; contains `{score}` placeholder
+  driftAmplitude: number;       // NEW — px; max horizontal offset for drifter sine-wave; default: 80
+  driftFrequency: number;       // NEW — Hz; sine-wave oscillation speed for drifter; default: 1.5
+}
+```
+
+### Clock Interface (amendment: H3 constitution fix)
+
+To preserve Constitution Principle I (no browser APIs in `src/core/`), `Clock` gains an injectable `getDateString()` that replaces any direct `new Date()` call in the engine:
+
+```typescript
+interface Clock {
+  getCurrentTime(): number;   // existing — epoch ms
+  getDelta(): number;         // existing — ms since last frame
+  getDateString(): string;    // NEW — returns ISO YYYY-MM-DD; implementation lives in adapter layer
+}
+```

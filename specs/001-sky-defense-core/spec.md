@@ -341,11 +341,24 @@ communicated via visual cues alone.
 - **FR-018**: A skippable interstitial ad MAY be shown after every Nth
   completed run (configurable, default: every 2 runs) during the
   game-over transition; if it fails, the game-over screen loads normally.
-- **FR-019**: A "watch ad to continue" rewarded-video option MAY be
-  offered on the game-over screen **once per run**; completing the full
-  video grants one additional life and resumes the run; skipping or
-  failure grants nothing but the option remains until consumed or the
-  player retries.
+- **FR-019**: Three distinct rewarded-ad placements are available, each
+  independently gated and each usable **at most once per run**:
+  1. **Watch to Continue** — on the game-over screen when the run ends,
+     grants one extra life and resumes the run; available only if not yet
+     used this run (`continueUsed === false`). Skipping or failure grants
+     nothing; the option remains until consumed or the player taps Retry.
+  2. **Revive Shield** — on the game-over screen after the player's
+     **first** life-loss ends the run, offers a life restore; available
+     only if not yet used this run (`reviveAvailable === true`). Must
+     appear on the game-over screen — NEVER during active gameplay
+     (Constitution Rule 28). Skipping or failure leaves `reviveAvailable`
+     unchanged for one further attempt.
+  3. **Score Doubler** — on the game-over screen when the player did NOT
+     use a continue (`continueUsed === false`), doubles the displayed
+     session score; does NOT affect `bestScore` comparison; usable once
+     per run (`doublersUsed === false`).
+  All three placements MUST be independently failure-tolerant: ad failure
+  or SDK error MUST NOT degrade gameplay (per FR-017).
 - **FR-020**: Ad interstitial cadence and rewarded-ad availability MUST
   be configurable without a code change (local constant or remote config).
 - **FR-021**: Ad revenue metrics (impressions, fill rate, eCPM) MUST be
@@ -383,11 +396,19 @@ communicated via visual cues alone.
   rate, enemy speed multiplier, enemy health multiplier, current level,
   maximum level cap.
 - **High Score Record**: Persisted locally. Attributes: best score,
-  date achieved.
+  date achieved, daily streak count, last played date (ISO 8601 date),
+  daily-challenge completed date.
+- **Enemy Type**: Determines behavior variant. `standard` — falls straight
+  down. `drifter` (unlocks difficulty level 3) — sine-wave horizontal
+  drift; sidesteps fixed vertical fire line. `armored` (unlocks level 6)
+  — 3× health, flashes on intermediate hits; requires burst fire to
+  destroy. `speeder` (unlocks level 10) — 3× fall speed, reduced hitbox;
+  forces rapid repositioning.
 - **Ad Placement**: Controls monetization triggers. Attributes:
   interstitial cadence (runs between interstitials), rewarded-ad
-  availability flag, timeout threshold, current run counter,
-  continue-used flag (max 1 per run).
+  availability flags (`continueUsed`, `reviveAvailable`, `doublersUsed`
+  — one per placement, each boolean, all reset at run start), timeout
+  threshold, current run counter.
 - **Ad Config**: Tunable monetization settings. Attributes: interstitial
   frequency, rewarded-ad enabled flag, ad timeout duration; changeable
   without code deployment.
@@ -414,6 +435,9 @@ communicated via visual cues alone.
   a mid-range mobile device.
 - **SC-009**: 90 % of first-time players complete at least one full run
   without confusion or abandonment (validated via playtest).
+  > **Note (2026-03-07)**: SC-009 is a **post-launch retention metric**, not a
+  > pre-ship gate. Measure via session-completion rate in analytics after the
+  > first public release. No pre-ship task is required.
 - **SC-010**: Ad impressions per session average ≥ 1 across players who
   complete at least 2 runs (revenue baseline).
 
@@ -424,8 +448,10 @@ communicated via visual cues alone.
 - Monetization is 100 % ad-supported; there are no in-app purchases in
   this version.
 - No user accounts or cloud sync — all data is device-local.
-- A single enemy type (with scaling health/speed) is sufficient for the
-  initial version; additional enemy variants are a future enhancement.
+- Four enemy types are supported: `standard`, `drifter`, `armored`, and
+  `speeder`. Each unlocks at a specific difficulty level (3, 6, 10
+  respectively) and is selected by the spawner using weighted probability.
+  Further variants remain a future enhancement.
 - The player character slides horizontally by dragging and fires
   straight up automatically — the only input is horizontal positioning.
 - Sound assets will be minimal (< 5 effects + optional ambient loop) to

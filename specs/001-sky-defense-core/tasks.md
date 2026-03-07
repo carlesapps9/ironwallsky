@@ -2,13 +2,17 @@
 
 **Input**: Design documents from `/specs/001-sky-defense-core/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/game-events.md, quickstart.md
+**Amendment**: 2026-03-07 — spec.md amended to add enemy variety (4 types), combo multiplier,
+daily streak, remote config, 2 new rewarded-ad placements (Revive Shield, Score Doubler), share card.
+Amendment tasks are in Phase 10 (T064–T089). Plan: specs/main/plan.md.
 
 **Tests**: Constitution Principle VI mandates unit tests (seeded RNG +
-simulated clock) and integration tests (lifecycle, touch, offline). Test
-tasks are in Phase 9.
+simulated clock) and integration tests (lifecycle, touch, offline). Original
+tests are in Phase 9 (T053–T063). Amendment tests are in Phase 10G (T084–T089).
 
 **Organization**: Tasks are grouped by user story (5 stories, P1–P5) to enable
-independent implementation and testing of each story.
+independent implementation and testing of each story. Phase 10 implements
+cross-cutting amendment features that extend US1–US5.
 
 ## Format: `[ID] [P?] [Story?] Description`
 
@@ -147,7 +151,7 @@ independent implementation and testing of each story.
 **Purpose**: Platform packaging, asset pipeline, lint enforcement, bundle verification, and quickstart validation
 
 - [x] T045 [P] Initialize Capacitor Android project and run first sync (npx cap add android, npx cap sync) in android/ — note: required `npm install @capacitor/android@^6.0.0` first (v6 to match core v6)
-- [ ] T046 [P] Initialize Capacitor iOS project and run first sync (npx cap add ios, npx cap sync) in ios/ — **macOS + Xcode required; skip on Windows**
+- [-] T046 [P] Initialize Capacitor iOS project and run first sync (npx cap add ios, npx cap sync) in ios/ — **DEFERRED: macOS + Xcode required; not executable on Windows dev/CI machine**
 - [x] T047 [P] Create asset pipeline CI script (compress sprites to WebP/AVIF with PNG fallback per constitution rule 34, generate sprite atlas, hash filenames, produce asset manifest) in scripts/build-assets.ts
 - [x] T048 [P] Verify ESLint core-isolation rule catches Phaser/browser imports in src/core/** and fix any violations in eslint.config.ts
 - [x] T049 Bundle size audit (vite build, measure Phaser chunk + app chunk compressed sizes, document results vs 150 kB budget + justified violation) in vite.config.ts
@@ -177,6 +181,68 @@ independent implementation and testing of each story.
 
 ---
 
+## Phase 10: Amendment Features (Engagement & Monetization) — 2026-03-07
+
+**Source**: plan.md Amendment 2026-03-07, validated via speckit.analyze against constitution
+**Baseline**: All T001–T063 complete. 76/76 tests pass. Build clean. ESLint clean.
+**Prerequisites**: All previous phases complete; no blocking dependencies on incomplete tasks
+
+### 10A: Data Model Updates (BLOCKS all Phase 10 work below)
+
+- [ ] T064 [P] [US1] Extend `EnemyType` union to `'standard' | 'drifter' | 'armored' | 'speeder'` and add `driftPhase: number` field to `Enemy` interface (used by drifter sine-wave) in `src/core/entities.ts`
+- [ ] T065 [P] [US1] Extend `Run` interface with `reviveAvailable: boolean`, `doublersUsed: boolean`, `comboCount: number`, `comboMultiplier: number`, `comboLastHitElapsedMs: number`; update `createGameState` factory to initialize all new fields (`reviveAvailable: true`, `doublersUsed: false`, `comboCount: 0`, `comboMultiplier: 1.0`, `comboLastHitElapsedMs: 0`) in `src/core/entities.ts` + `src/core/engine.ts`
+- [ ] T066 [P] [US3] Extend `HighScoreRecord` interface with `dailyStreak: number`, `lastPlayedDate: string`, `dailyChallengeCompletedDate: string`; extend `GameConfig` with `comboWindow`, `comboMultiplierStep`, `comboMultiplierCap`, `enemyTypeWeights`, `remoteConfigUrl`, `scoreTweetTemplate`, `driftAmplitude` (default: 80 px), `driftFrequency` (default: 1.5 Hz), `continueEnabled` (default: true), `reviveEnabled` (default: true), `doublerEnabled` (default: true); remove single `rewardedAdEnabled` — replaced by 3 flags above; update `DEFAULT_CONFIG` with `remoteConfigUrl: ''` (remote config disabled — see Notes), `scoreTweetTemplate: 'I scored {score} pts in Iron Wall Sky! Can you beat me? 🔥'` in `src/core/entities.ts` + `src/core/config.ts`
+- [ ] T067 [P] [US1] Add 3 new events to `GameEventMap` (`combo-updated`, `revive-granted`, `score-doubled`) with typed payloads per plan.md data model, and export from event bus in `src/core/events.ts`
+
+**Checkpoint**: All new types compile. Existing 76 tests still pass.
+
+### 10B: Core Systems (all [P] — separate concerns, no cross-dependencies)
+
+- [ ] T068 [P] [US1] Update movement system to handle `drifter` (apply `Math.sin(driftPhase) * driftAmplitude` to `velocity.x` each step; increment `driftPhase` by `FIXED_DT * driftFrequency`) and `speeder` (spawn with `velocity.y = baseEnemySpeed * 3`) variants; `armored` and `standard` require no movement change in `src/core/systems/movement.ts`
+- [ ] T069 [P] [US1] Update spawner system to select enemy type via weighted probability based on current difficulty level: `standard` always eligible; `drifter` eligible at level ≥ 3; `armored` at level ≥ 6; `speeder` at level ≥ 10; weights from `config.enemyTypeWeights`; use seeded RNG in `src/core/systems/spawner.ts`
+- [ ] T070 [P] [US3] Update scoring system to apply `comboMultiplier` to point award on `enemy-destroyed`; on each kill: increment `comboCount`, step up `comboMultiplier` (capped at `config.comboMultiplierCap`), reset `run.comboLastHitElapsedMs = 0`; each step: increment `run.comboLastHitElapsedMs += dt`; when `comboLastHitElapsedMs > config.comboWindow` reset combo to baseline (`comboCount = 0`, `comboMultiplier = 1.0`, `comboLastHitElapsedMs = 0`); emit `combo-updated`; **MUST use the per-step `dt` accumulator — NEVER `setTimeout` (constitution rule 7)** in `src/core/systems/scoring.ts`
+- [ ] T071 [P] [US3] Implement daily streak logic in engine: on `run-phase-changed → game-over`, compare today's date (ISO 8601 YYYY-MM-DD) via injectable `clock.getDateString()` (NOT `new Date()` — Constitution Principle I forbids browser APIs in core; extend `Clock` interface with `getDateString(): string` in `src/core/clock.ts`) with `highScore.lastPlayedDate`; if consecutive day increment `dailyStreak`, if same day keep it, if gap > 1 day reset to 1; persist updated record; emit `high-score-beaten` if bestScore changed in `src/core/engine.ts`
+
+### 10C: Phaser Adapters
+
+- [ ] T072 [P] [US3] Add combo HUD element to play scene (subscribe to `combo-updated`; display `xN` multiplier text near score when `comboMultiplier > 1.0`; animate on change; hide at `comboMultiplier === 1.0`; visible when muted per FR-013) in `src/adapters/phaser/play-scene.ts`
+- [ ] T073 [P] [US1] **[BLOCKED — awaiting sprite art]** Add enemy-variant VFX to play scene once per-type sprites are available in `assets-src/sprites/`; armored enemies: white tint flash on intermediate hit (health > 0); speeder enemies: motion-trail particle emitter; drifter enemies: distinct sprite texture swap; all visual-only, zero gameplay impact; unblock by adding sprites and removing this label in `src/adapters/phaser/play-scene.ts`
+- [ ] T074 [US4] Add Revive Shield button to continue-offer scene: show when `run.phase === 'continue-offer'` and `run.reviveAvailable === true` (H1 fix: was incorrectly 'game-over'; FSM sends lives=0+continueUsed=false to 'continue-offer', not 'game-over'); on tap show rewarded ad; on completion call `engine.grantRevive()` → engine sets `remainingLives = 1, reviveAvailable = false`, transitions to `playing`; on failure/skip leave `reviveAvailable` unchanged for one more attempt; hide after consumed; must NEVER appear during active gameplay (Constitution Rule 28) in `src/adapters/phaser/gameover-scene.ts`
+- [ ] T075 [US4] Add Score Doubler button to continue-offer scene: show when `run.phase === 'continue-offer'` and `run.doublersUsed === false`; on tap show rewarded ad; on completion call `engine.grantScoreDouble()` → engine doubles `run.score` (does NOT affect `bestScore` comparison used for `high-score-beaten` event), sets `doublersUsed = true`, emits `score-doubled`; update score display after doubling; on failure/skip leave `doublersUsed` unchanged in `src/adapters/phaser/gameover-scene.ts`
+- [ ] T076 [US3] Add Share Card to continue-offer/game-over scene: show "Share Score" button when `run.phase === 'continue-offer'` or `'game-over'`; on tap construct share payload (`title: 'Iron Wall Sky'`, `text: config.scoreTweetTemplate` with `{score}` replaced, `url: window.location.href`); call `navigator.share(payload)` if available; fall back to `navigator.clipboard.writeText(text)` with "Copied!" toast if Web Share API unavailable; touch-target ≥ 48 px (FR-024); no PII shared (constitution rule 40) in `src/adapters/phaser/gameover-scene.ts`
+
+### 10D: Storage, Remote Config & Analytics
+
+- [ ] T077 [P] [US2] Update storage adapter to handle `HighScoreRecord` v2 schema: on read, if `dailyStreak` is undefined apply migration (set to 0, `lastPlayedDate` to '', `dailyChallengeCompletedDate` to '') before returning; persist all new fields on save; update integration tests to cover migration path in `src/adapters/storage/storage-adapter.ts`
+- [ ] T078 [P] [US4] Add remote config fetch to boot: in `src/main.ts`, if `DEFAULT_CONFIG.remoteConfigUrl` is non-empty fetch config JSON at startup with a 3 s timeout; merge fetched values over `DEFAULT_CONFIG` (only known keys, validated by type guard); on failure/offline silently use `DEFAULT_CONFIG`; never block gameplay start on config fetch; log fetch result (success/failure) to console in `src/main.ts`
+- [ ] T090 [P] [US4] Extend analytics adapter to track amendment events: subscribe to `revive-granted` (fire `ad_rewarded_complete` with `{placement: 'revive'}`), `score-doubled` (fire `ad_rewarded_complete` with `{placement: 'double', newScore}`), and share card taps (fire `share_card_tapped` with `{score, method: 'native'|'clipboard'}`); all fire-and-forget with silent failure per FR-021; no PII (constitution rule 40) in `src/adapters/analytics/analytics-adapter.ts`
+
+### 10E: Native & Web Ad Adapters (2 new placements)
+
+- [ ] T079 [P] [US4] Add Revive Shield (`revive`) and Score Doubler (`double`) ad unit support to native ad adapter: new `showRevive(onGranted, onFailed)` and `showDouble(onGranted, onFailed)` methods; use `AdMob.prepareRewardVideoAd` with dedicated test ad unit IDs; follow same try/catch isolation pattern as existing rewarded ad in `src/adapters/ads/native-ad-adapter.ts`
+- [ ] T080 [P] [US4] Add Revive Shield and Score Doubler ad slot support to web ad adapter: new `showRevive` and `showDouble` methods; reuse DOM overlay pattern from existing rewarded slot; add distinct GPT slot names; same 5 s timeout + silent failure per FR-017 in `src/adapters/ads/web-ad-adapter.ts`
+- [ ] T081 [P] [US4] Update `AdService` interface with `showRevive` and `showDouble` method signatures; migrate `AdConfig.rewardedAdEnabled` (single flag) → 3 independent per-placement flags: `continueEnabled`, `reviveEnabled`, `doublerEnabled` (all default: `true`); update ad-adapter factory to gate each placement by its own flag and wire `grantRevive` / `grantScoreDouble` callbacks; update all call-sites that referenced `rewardedAdEnabled`: Watch to Continue gate → `continueEnabled` (T037 implementation), Revive Shield gate → `reviveEnabled` (T074), Score Doubler gate → `doublerEnabled` (T075) in `src/adapters/ads/ad-adapter.ts`
+
+### 10F: Engine Methods (Revive, Score Double & Gap Stubs)
+
+- [ ] T082 [US4] Add `engine.grantRevive()` method: validate `run.phase === 'continue-offer'` and `run.reviveAvailable === true`; set `remainingLives = 1`, `reviveAvailable = false`; transition phase to `playing`; emit `revive-granted`; log state transition per constitution rule 6 in `src/core/engine.ts`
+- [ ] T083 [US4] Add `engine.grantScoreDouble()` method: validate `run.phase === 'continue-offer'` and `run.doublersUsed === false`; double `run.score`; set `doublersUsed = true`; emit `score-doubled`; do NOT re-evaluate `bestScore` (doubling happens post-run, does not affect personal best) in `src/core/engine.ts`
+- [ ] T091 [P] [US3] Add daily-challenge gap stub: insert a `// TODO(daily-challenge): dailyChallengeCompletedDate is persisted but no challenge mechanic is defined yet — implement when a future spec defines the trigger, validation, and reward` comment above the `highScore.dailyChallengeCompletedDate` reference added by T066 so the gap is visible to future implementers in `src/core/engine.ts`
+
+### 10G: Tests (Amendment — Constitution Mandate)
+
+- [ ] T084 [P] [US3] Unit tests for combo scoring: multiplier increments on consecutive hits, resets after `comboWindow` ms elapses with no hit, caps at `comboMultiplierCap`, emits `combo-updated` with correct payload in `tests/unit/scoring.test.ts` (extend existing file)
+- [ ] T085 [P] [US1] Unit tests for weighted enemy-type spawner: at difficulty level < 3 only `standard` spawned; at level 3 `drifter` eligible; at level 6 `armored` eligible; at level 10 `speeder` eligible; weights produce correct distribution over 1000 spawns with fixed seed in `tests/unit/spawner.test.ts` (extend existing file)
+- [ ] T086 [P] [US1] Unit tests for drifter + speeder movement: drifter `velocity.x` follows sine wave each step; speeder spawns at 3× base `velocity.y`; armored and standard unaffected in `tests/unit/movement.test.ts` (extend existing file)
+- [ ] T087 [P] [US4] Unit tests for engine revive, score-double, and Retry-from-continue paths: (1) `grantRevive()` sets `remainingLives = 1`, `reviveAvailable = false`, transitions `continue-offer → playing`; (2) `grantScoreDouble()` doubles score, sets `doublersUsed = true`, does not touch `bestScore`; (3) both methods guard wrong-phase calls with no-op; (4) Retry tap from `continue-offer`: `startNewRun()` transitions `continue-offer → game-over` (final), confirming continue-offer cannot be re-entered for same run in `tests/unit/engine.test.ts` (extend existing file)
+- [ ] T088 [P] [US2] Integration tests for storage adapter v2 migration: simulate v1 record (no streak fields) → read → assert migration applied; write v2 record → read → assert all fields preserved in `tests/integration/storage.test.ts` (extend existing file)
+- [ ] T089 [P] [US3] Integration tests for daily streak: consecutive day increments streak; same-day re-play does not increment; gap > 1 day resets streak to 1; uses injected `clock.getDateString()` (not real `Date.now()`) in `tests/integration/streak.test.ts` (new file)
+- [ ] T093 [P] Playwright gameplay smoke test: boot game → wait for play scene to be active → simulate 5 drag-touch events across screen width → wait 3 s → assert no uncaught JS errors, HUD score element visible, at least 1 `projectile-fired` event logged; run with `--headed=false` and `--timeout=15000` in `tests/e2e/gameplay.spec.ts` (new file)
+
+**Checkpoint**: All 7 amendment feature groups implemented and tested (enemy variety, combo multiplier, daily streak, remote config disabled, Revive Shield, Score Doubler, analytics extensions). 76 + N new tests pass. Constitution gates G1–G10 still satisfied. Share card tested manually (Web Share API requires real browser). T073 remains blocked until per-type sprites are added to `assets-src/sprites/`.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -188,6 +254,11 @@ Phase 1: Setup ──► Phase 2: Foundational ──► Phases 3–7: User Stor
                    All user stories          Can proceed in
                    depend on this            priority order or
                                              in parallel
+                                                  │
+                                                  ▼
+                                          Phase 10: Amendment
+                                          (T064–T089, 2026-03-07)
+                                          Depends on Phases 1–9 complete
 ```
 
 - **Setup (Phase 1)**: No dependencies — start immediately
@@ -197,6 +268,10 @@ Phase 1: Setup ──► Phase 2: Foundational ──► Phases 3–7: User Stor
   - Or in parallel if team capacity allows
 - **Polish (Phase 8)**: Depends on at least US1 (Phase 3) being complete
 - **Tests (Phase 9)**: Unit tests can start after Phase 3; integration/E2E after Phase 4+; CI setup (T052) can start after Phase 1
+- **Amendment (Phase 10)**: Depends on Phases 1–9 fully complete (all 76 baseline tests passing)
+  - 10A (data model) MUST complete first — blocks all other Phase 10 groups
+  - 10B–10F can run in parallel after 10A
+  - 10G (tests) runs last after 10B–10F
 
 ### User Story Dependencies
 
@@ -228,7 +303,13 @@ Within each phase, tasks marked [P] can be executed simultaneously:
 | US5 | T039, T040, T041, T042 | T043 → T044 |
 | Polish | T045, T046, T047, T048, T051, T052 | T049 → T050 |
 | Tests | T053, T054, T055, T056, T057, T058, T059, T060, T061, T062 | T063 after all |
-
+| Ph10-A | T064, T065, T066, T067 | all [P] within 10A; MUST complete before 10B–10G |
+| Ph10-B | T068, T069, T070, T071 | after T064–T067 |
+| Ph10-C | T072, T073 [P]; then T074, T075, T076 | T072/T073 parallel; T074–T076 sequential |
+| Ph10-D | T077, T078, T090 | all [P] after T064–T067 |
+| Ph10-E | T079, T080, T081 | T079/T080 [P] → T081 after both |
+| Ph10-F | T082, T083, T091 | T082/T083 after T065; T091 [P] after T066 |
+| Ph10-G | T084, T085, T086, T087, T088, T089, T093 | all [P]; after all 10B–10F complete |
 ---
 
 ## Parallel Example: User Story 1
@@ -280,6 +361,11 @@ T025: main.ts          ──► depends on all above
 5. **US4 → Ads Monetization** → Test independently → Deploy (revenue!)
 6. **US5 → Visual & Audio Polish** → Test independently → Deploy (polish!)
 7. **Phase 8 → Polish** → Final validation → Ship
+8. **Phase 10 → Amendment (2026-03-07)**:
+   - 10A data model first (blocks everything)
+   - 10B–10F in parallel
+   - 10G tests last
+   - Re-validate: all 76 baseline + N new tests pass before deploy
 
 Each story adds value without breaking previous stories.
 
@@ -292,5 +378,9 @@ Each story adds value without breaking previous stories.
 - Each user story is independently completable and testable
 - Commit after each task or logical group
 - Stop at any checkpoint to validate the story independently
-- Constitution DoD requires tests — Phase 9 satisfies rules 23–26
+- Constitution DoD requires tests — Phase 9 satisfies rules 23–26; Phase 10G extends them
 - Phaser bundle exceeds 150 kB budget (justified violation — see plan.md Complexity Tracking)
+- Phase 10 amendment plan: specs/main/plan.md (data model delta, constitution re-check, new events)
+- Real AdMob production ad unit IDs and account setup: specs/001-sky-defense-core/tasks-admob-production (run Phase A–B before submitting to Play Store / App Store)
+- `remoteConfigUrl` is disabled (`''`) by decision; enable by setting the URL constant in `src/core/config.ts` and deploying a JSON file to a CDN
+- T073 is blocked pending sprite art for drifter / armored / speeder variants in `assets-src/sprites/`

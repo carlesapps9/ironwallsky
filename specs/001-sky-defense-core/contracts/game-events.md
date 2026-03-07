@@ -41,7 +41,10 @@ type GameEventType =
   | 'life-lost'
   | 'run-phase-changed'
   | 'difficulty-increased'
-  | 'high-score-beaten';
+  | 'high-score-beaten'
+  | 'combo-updated'
+  | 'revive-granted'
+  | 'score-doubled';
 
 /** Maps each event type to its payload shape. */
 interface GameEventMap {
@@ -57,6 +60,9 @@ interface GameEventMap {
   'run-phase-changed': RunPhaseChangedEvent;
   'difficulty-increased': DifficultyIncreasedEvent;
   'high-score-beaten': HighScoreBeatenEvent;
+  'combo-updated': ComboUpdatedEvent;
+  'revive-granted': ReviveGrantedEvent;
+  'score-doubled': ScoreDoubledEvent;
 }
 
 /** Typed event bus interface. */
@@ -163,6 +169,29 @@ interface HighScoreBeatenEvent {
 }
 ```
 
+### Amendment Events (2026-03-07)
+
+```typescript
+interface ComboUpdatedEvent {
+  /** Current consecutive-hit count; 0 means combo was reset to baseline. */
+  count: number;
+  /** Current score multiplier; 1.0 = baseline (no bonus). */
+  multiplier: number;
+}
+
+interface ReviveGrantedEvent {
+  /** Lives remaining after the revive — always 1 per FR-019. */
+  remainingLives: number;
+}
+
+interface ScoreDoubledEvent {
+  /** New (doubled) displayed session score. Does NOT affect bestScore comparison. */
+  newScore: number;
+  /** Original pre-doubling score. */
+  originalScore: number;
+}
+```
+
 ### Life Events
 
 ```typescript
@@ -212,8 +241,14 @@ interface EngineCommands {
   /** Resume from pause (foreground + user tap). */
   resumeRun(): void;
 
-  /** Rewarded ad completed — grant continue. */
+  /** Rewarded ad completed — grant Watch to Continue (one extra life). */
   grantContinue(): void;
+
+  /** Revive Shield rewarded ad completed — restore 1 life, set reviveAvailable = false. */
+  grantRevive(): void;
+
+  /** Score Doubler rewarded ad completed — double displayed session score; bestScore comparison unaffected. */
+  grantScoreDouble(): void;
 }
 ```
 
@@ -240,8 +275,11 @@ interface EngineCommands {
 
 | Subscribe To | Action |
 |-------------|--------|
-| `run-phase-changed` (→ game-over) | Show game-over UI |
-| `high-score-beaten` | Highlight new record |
+| `run-phase-changed` (→ continue-offer) | Show continue-offer UI; render Watch to Continue, Revive Shield, Score Doubler, Share Card buttons (gated by run flags) |
+| `run-phase-changed` (→ game-over) | Show final game-over UI; render Share Card button only |
+| `high-score-beaten` | Highlight new record with distinct animation |
+| `revive-granted` | Hide continue-offer UI; return to active play |
+| `score-doubled` | Update displayed score with doubled value |
 
 ### Audio Adapter
 
@@ -258,7 +296,7 @@ interface EngineCommands {
 | Subscribe To | Action |
 |-------------|--------|
 | `run-phase-changed` (→ game-over) | Check interstitial cadence, show if due |
-| `run-phase-changed` (→ continue-offer) | Prepare rewarded ad |
+| `run-phase-changed` (→ continue-offer) | Prepare all 3 rewarded ads (Watch to Continue, Revive Shield, Score Doubler) |
 
 ### Storage Adapter
 

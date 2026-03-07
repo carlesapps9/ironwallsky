@@ -3,6 +3,11 @@
 **Branch**: `001-sky-defense-core` | **Date**: 2026-02-28 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/001-sky-defense-core/spec.md`
 
+**Amendment 2026-03-07**: Engagement & monetization improvements added (enemy variety,
+combo multiplier, daily streak, remote config, two new rewarded ad placements, share card).
+Full amendment plan with data model delta, constitution re-check, and new events:
+→ [specs/main/plan.md](../main/plan.md)
+
 ## Summary
 
 A minimal, portrait-first mobile defense game where enemies fall from the sky
