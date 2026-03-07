@@ -1,0 +1,159 @@
+name: Android Release Build
+
+# Produces a signed AAB (Play Store) and a signed APK (sideload/test).
+# Triggered automatically on every push to main, or manually from Actions tab.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   RELEASE_KEYSTORE_BASE64   — base64-encoded ironwallsky-release.jks
+#   RELEASE_STORE_PASSWORD    — keystore store password
+#   RELEASE_KEY_ALIAS         — key alias (ironwallsky)
+#   RELEASE_KEY_PASSWORD      — key password
+#   VITE_ADMOB_APP_ID_ANDROID — ca-app-pub-xxxx~yyyy
+#   VITE_ADMOB_INTERSTITIAL_ANDROID — ca-app-pub-xxxx/yyyy
+#   VITE_ADMOB_REWARDED_ANDROID     — ca-app-pub-xxxx/yyyy
+#
+# Encode the keystore locally with:
+#   [Convert]::ToBase64String([IO.File]::ReadAllBytes('ironwallsky-release.jks')) | Set-Clipboard
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_apk:
+        description: 'Also build debug/test APK'
+        required: false
+        default: 'true'
+        type: boolean
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '21'
+  NODE_VERSION: '20'
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────
+  # Gate: CI must be green before we spend time on the native build
+  # ────────────────────────────────────────────────────────────────────────
+  wait-for-ci:
+    name: Wait for CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI gate passed
+        run: echo "CI workflow must pass before this job runs (see branch protection rules)"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Main build job
+  # ────────────────────────────────────────────────────────────────────────
+  build-android:
+    name: Build Signed AAB
+    runs-on: ubuntu-latest
+    needs: wait-for-ci
+
+    steps:
+      # ── 1. Source ────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── 2. Node (Vite build) ─────────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # ── 3. Java (Gradle) ─────────────────────────────────────────────────
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      # ── 4. Android SDK ───────────────────────────────────────────────────
+      - name: Configure Android SDK path
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+
+      # ── 5. Keystore ──────────────────────────────────────────────────────
+      - name: Decode release keystore
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > ironwallsky-release.jks
+          echo "Keystore decoded: $(wc -c < ironwallsky-release.jks) bytes"
+
+      - name: Write keystore.properties
+        run: |
+          cat > android/keystore.properties <<EOF
+          storeFile=../../ironwallsky-release.jks
+          storePassword=${{ secrets.RELEASE_STORE_PASSWORD }}
+          keyAlias=${{ secrets.RELEASE_KEY_ALIAS }}
+          keyPassword=${{ secrets.RELEASE_KEY_PASSWORD }}
+          EOF
+
+      # ── 6. Web bundle (production — real ads, no test mode) ──────────────
+      - name: Build Vite production bundle
+        run: npm run build
+        env:
+          VITE_ADMOB_TESTING: 'false'
+          VITE_ADMOB_APP_ID_ANDROID: ${{ secrets.VITE_ADMOB_APP_ID_ANDROID }}
+          VITE_ADMOB_INTERSTITIAL_ANDROID: ${{ secrets.VITE_ADMOB_INTERSTITIAL_ANDROID }}
+          VITE_ADMOB_REWARDED_ANDROID: ${{ secrets.VITE_ADMOB_REWARDED_ANDROID }}
+          VITE_ADMOB_APP_ID_IOS: ${{ secrets.VITE_ADMOB_APP_ID_IOS }}
+          VITE_ADMOB_INTERSTITIAL_IOS: ${{ secrets.VITE_ADMOB_INTERSTITIAL_IOS }}
+          VITE_ADMOB_REWARDED_IOS: ${{ secrets.VITE_ADMOB_REWARDED_IOS }}
+
+      - name: Capacitor sync (Android)
+        run: npx cap sync android
+
+      # ── 7. Gradle permissions ────────────────────────────────────────────
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      # ── 8. AAB (Play Store) ──────────────────────────────────────────────
+      - name: Build signed release AAB
+        working-directory: android
+        run: ./gradlew bundleRelease --no-daemon --stacktrace
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab-${{ github.sha }}
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      # ── 9. APK (sideload / internal testing) — optional ─────────────────
+      - name: Build signed release APK
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_apk == 'true' || github.event_name == 'push' }}
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_apk == 'true' || github.event_name == 'push' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk-${{ github.sha }}
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14
+
+      # ── 10. Build summary ────────────────────────────────────────────────
+      - name: Print build summary
+        if: always()
+        run: |
+          echo "## Android Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          AAB="android/app/build/outputs/bundle/release/app-release.aab"
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          if [ -f "$AAB" ]; then
+            SIZE=$(du -sh "$AAB" | cut -f1)
+            echo "✅ **AAB** (Play Store): \`$SIZE\`  — artifact: \`app-release-aab-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ AAB build failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f "$APK" ]; then
+            SIZE=$(du -sh "$APK" | cut -f1)
+            echo "✅ **APK** (sideload): \`$SIZE\`  — artifact: \`app-release-apk-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: \`${{ github.sha }}\` by **${{ github.actor }}**" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,137 @@
+name: CI
+
+# Run on every push to every branch and on all PRs targeting main.
+# Fast feedback — no native builds here (see android-release.yml).
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  # Cancel in-progress runs on the same branch/PR to save runner minutes.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────
+  # Job 1: Lint + Type-check  (fastest gate — fail quickly on bad code)
+  # ────────────────────────────────────────────────────────────────────────
+  lint-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Job 2: Unit + Integration tests
+  # ────────────────────────────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit & integration tests
+        run: npm test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            coverage/
+          if-no-files-found: ignore
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Job 3: Production Vite build + bundle validation
+  # ────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build & Validate Bundle
+    runs-on: ubuntu-latest
+    # Needs test + lint to pass first on PRs; runs in parallel on pushes.
+    needs: [lint-typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+        env:
+          # AdMob IDs are not required for the web/PWA build.
+          # Set these as repo secrets if you need them in CI Vite output.
+          VITE_ADMOB_TESTING: 'false'
+
+      - name: Bundle size report
+        run: |
+          echo "=== dist/ total ==="
+          du -sh dist/
+          echo ""
+          echo "=== JS chunks (sorted) ==="
+          find dist/assets -name '*.js' -exec du -sh {} \; | sort -rh
+          echo ""
+          # Warn if app JS excluding Phaser exceeds 300 kB (constitution §2)
+          APP_BYTES=$(find dist/assets -name '*.js' ! -name '*phaser*' -exec wc -c {} + | tail -1 | awk '{print $1}')
+          echo "App JS (excl. Phaser): $((APP_BYTES / 1024)) kB"
+          if [ "$APP_BYTES" -gt 307200 ]; then
+            echo "::warning::App JS bundle exceeds 300 kB — review chunk splitting"
+          fi
+
+      - name: Verify content-hashed assets
+        run: |
+          UNHASHED=$(find dist/assets -name '*.js' -o -name '*.css' | grep -Ev '\.[a-f0-9]{8,}\.' || true)
+          if [ -n "$UNHASHED" ]; then
+            echo "::error::Unhashed assets detected — cache-busting will break for:"
+            echo "$UNHASHED"
+            exit 1
+          fi
+          echo "All assets are content-hashed ✓"
+
+      - name: Verify PWA manifest + service worker
+        run: |
+          test -f dist/sw.js             && echo "sw.js present ✓"   || { echo "::error::sw.js missing";   exit 1; }
+          test -f dist/manifest.webmanifest && echo "manifest present ✓" || { echo "::error::manifest missing"; exit 1; }
+
+      - name: Capacitor config check
+        run: npx cap ls 2>&1 || true
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: 7

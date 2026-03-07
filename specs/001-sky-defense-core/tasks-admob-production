@@ -1,0 +1,60 @@
+# Tasks: Real AdMob Ads for App Store Publishing
+
+**Input**: Approved plan from conversation, existing ad adapter layer in `src/adapters/ads/`
+**Prerequisites**: All Phase 6 (US4) tasks complete (T033–T038), game fully playable
+
+**Goal**: Replace test/simulated ads with real AdMob ad serving on both Android and iOS,
+fix the adService wiring bug, and prepare the app for Play Store and App Store submission.
+
+---
+
+## Format: `[ID] Description`
+
+Each task specifies:
+- **Input**: What you need before starting
+- **Output**: What this task produces for downstream tasks
+- **Files**: Which files are created or modified
+
+---
+
+## Phase A: AdMob Account & Ad Units (External Setup)
+
+### TA-001 Create Google AdMob Account
+
+- **Input**: Google account, game name (`Iron Wall Sky`), bundle ID (`com.ironwallsky.game`)
+- **Action**: Sign up at https://admob.google.com. Register **two apps**:
+  - Android app with package name `com.ironwallsky.game`
+  - iOS app with bundle ID `com.ironwallsky.game`
+- **Output**:
+  - Android AdMob App ID (format: `ca-app-pub-1616644616833222~9015068869`)
+  - iOS AdMob App ID (format: `ca-app-pub-1616644616833222~8994412201`)
+- **Notes**: AdMob may take up to 24h to activate a new account. Proceed with test IDs until confirmed.
+
+### TA-002 Create Ad Units in AdMob Console
+
+- **Input**: AdMob account from TA-001, both apps registered
+- **Action**: In the AdMob console, create **4 ad units** (2 per platform):
+
+  | Platform | Format       | Name suggestion              |
+  |----------|--------------|------------------------------|
+  | Android  | Interstitial | `iws-android-interstitial`   |
+  | Android  | Rewarded     | `iws-android-rewarded`       |
+  | iOS      | Interstitial | `iws-ios-interstitial`       |
+  | iOS      | Rewarded     | `iws-ios-rewarded`           |
+
+- **Output**: 4 Ad Unit IDs (format: `ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY`), one per row above
+- **Notes**: Record all 6 IDs (2 App IDs + 4 Ad Unit IDs) in a secure location. These are secrets — never commit them to source control.
+
+---
+
+## Phase B: Project Configuration
+
+### TA-003 Create Environment Variable Configuration
+
+- **Input**: Ad Unit IDs from TA-002, App IDs from TA-001
+- **Action**:
+  1. Create `.env.example` in project root with placeholder values (committed to git)
+  2. Create `.env` in project root with real values (gitignored)
+  3. Add `.env` to `.gitignore` if not already present
+- **Files modified**: `.env.example` (new), `.env` (new), `.gitignore`
+- **Output**: Environment variables available via `import.meta.env`:

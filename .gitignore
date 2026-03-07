@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Capacitor native projects (commit these or gitignore — team choice)
+# android/
+# ios/
+
+# Environment
+.env*
+!.env.example
+
+# Android signing — NEVER commit keystores or credentials
+*.jks
+*.keystore
+android/keystore.properties
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# PWA generated
+dev-dist/

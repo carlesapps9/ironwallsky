@@ -1,0 +1,42 @@
+{
+  "name": "ironwall-sky",
+  "version": "0.1.0",
+  "description": "Iron Wall Sky — Sky Defense Core",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:e2e": "npx playwright test",
+    "lint": "eslint src/ tests/",
+    "check:bundle": "vite build && echo 'Check dist/ size manually or via CI script'",
+    "icons:source": "node scripts/generate-icons.mjs",
+    "icons:store": "node scripts/generate-store-assets.mjs",
+    "icons:icon": "node scripts/generate-icon.mjs",
+    "icons:all": "node scripts/generate-icons.mjs && node scripts/generate-store-assets.mjs",
+    "sync:android": "npm run build && npx cap sync android",
+    "release:android": "npm run build && npx cap sync android && cd android && gradlew.bat bundleRelease",
+    "screenshots": "node scripts/capture-screenshots.mjs"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^6.0.0",
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/splash-screen": "^6.0.4",
+    "phaser": "^3.80.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@playwright/test": "^1.49.0",
+    "eslint": "^9.0.0",
+    "jiti": "^2.6.1",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0",
+    "vite": "^6.0.0",
+    "vite-plugin-pwa": "^0.21.0",
+    "vitest": "^3.0.0"
+  }
+}
