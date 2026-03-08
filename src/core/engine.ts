@@ -24,7 +24,9 @@ import { updateMovement } from './systems/movement.js';
 import { updateCollisions } from './systems/collision.js';
 import { updateSpawner } from './systems/spawner.js';
 import { updateDifficulty } from './systems/difficulty.js';
-import { updateScoring } from './systems/scoring.js';
+import { updateScoring, updateScoringStep } from './systems/scoring.js';
+import type { GameClock } from './clock.js';
+import { createRealClock } from './clock.js';
 import type { RunPhase } from './entities.js';
 
 // ─── Engine Commands Interface ───
@@ -160,6 +162,7 @@ interface SpawnerState {
 export function createEngine(
   config: GameConfig = DEFAULT_CONFIG,
   seed: number = Date.now(),
+  clock: GameClock = createRealClock(),
 ): GameEngine {
   const events: GameEventBus = createEventBus();
   const state: GameState = createGameState(config, seed);
@@ -219,11 +222,29 @@ export function createEngine(
 
   function endRun(): void {
     transitionPhase('game-over');
+
+    // T071: daily streak logic using injectable clock (NOT new Date() — Constitution Principle I)
+    const today = clock.getDateString(); // YYYY-MM-DD
+    const hs = state.highScore;
+    if (hs.lastPlayedDate === '') {
+      // First ever run
+      hs.dailyStreak = 1;
+    } else if (hs.lastPlayedDate === today) {
+      // Same day — keep streak unchanged
+    } else {
+      // Compare dates to determine consecutive day
+      const last = new Date(hs.lastPlayedDate).getTime();
+      const now  = new Date(today).getTime();
+      const diffDays = Math.round((now - last) / 86_400_000);
+      hs.dailyStreak = diffDays === 1 ? hs.dailyStreak + 1 : 1;
+    }
+    hs.lastPlayedDate = today;
+
     // Check high score
-    if (state.run.score > state.highScore.bestScore) {
-      const previous = state.highScore.bestScore;
-      state.highScore.bestScore = state.run.score;
-      state.highScore.dateAchieved = new Date().toISOString();
+    if (state.run.score > hs.bestScore) {
+      const previous = hs.bestScore;
+      hs.bestScore = state.run.score;
+      hs.dateAchieved = today;
       events.emit('high-score-beaten', {
         newBest: state.run.score,
         previous,
@@ -266,8 +287,8 @@ export function createEngine(
     const result = updateDifficulty(state, events, difficultyTimer);
     difficultyTimer = result.timer;
 
-    // Scoring (milestone check)
-    updateScoring(state, events, lastMilestone);
+    // Scoring — combo decay timer + milestone check (T070/T071)
+    updateScoringStep(state, events, dt, lastMilestone);
     lastMilestone =
       Math.floor(state.run.score / state.config.milestoneInterval) *
       state.config.milestoneInterval;

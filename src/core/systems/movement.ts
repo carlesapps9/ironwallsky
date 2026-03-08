@@ -1,6 +1,7 @@
 // src/core/systems/movement.ts — Movement system (US1)
 // Applies velocity × dt to player, enemies, and projectiles.
 // Clamps player to world bounds. Deactivates off-screen projectiles.
+// T068: drifter sine-wave lateral motion applied each fixed step.
 
 import type { GameState } from '../entities.js';
 
@@ -27,6 +28,14 @@ export function updateMovement(state: GameState, dt: number): void {
   // Update active enemies
   for (const enemy of state.enemies) {
     if (!enemy.active) continue;
+
+    // T068: drifter — sine-wave lateral velocity driven by driftPhase
+    if (enemy.enemyType === 'drifter') {
+      enemy.velocity.x = Math.sin(enemy.driftPhase) * config.driftAmplitude;
+      // Advance phase: driftFrequency Hz → radians per step
+      enemy.driftPhase += (dt / 1000) * config.driftFrequency * 2 * Math.PI;
+    }
+
     enemy.position.x += enemy.velocity.x * dtSec;
     enemy.position.y += enemy.velocity.y * dtSec;
   }
