@@ -12,8 +12,14 @@ export interface AdService {
   /** Show an interstitial ad. Returns result. */
   showInterstitial(): Promise<AdResult>;
 
-  /** Show a rewarded ad. Returns result. */
+  /** Show the Watch-to-Continue rewarded ad. Returns result. */
   showRewarded(): Promise<AdResult>;
+
+  /** Show the Revive Shield rewarded ad (dedicated placement). Returns result. */
+  showRevive(): Promise<AdResult>;
+
+  /** Show the Score Doubler rewarded ad (dedicated placement). Returns result. */
+  showDouble(): Promise<AdResult>;
 
   /** Whether the ad service is available on this platform. */
   isAvailable(): boolean;
@@ -25,6 +31,8 @@ export function createNoOpAdService(): AdService {
     async initialize(): Promise<void> {},
     async showInterstitial(): Promise<AdResult> { return 'skipped'; },
     async showRewarded(): Promise<AdResult> { return 'skipped'; },
+    async showRevive(): Promise<AdResult> { return 'skipped'; },
+    async showDouble(): Promise<AdResult> { return 'skipped'; },
     isAvailable(): boolean { return false; },
   };
 }
