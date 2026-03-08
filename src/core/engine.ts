@@ -144,7 +144,16 @@ export function createGameState(
     enemies: createEnemyPool(),
     run: createRun(config, 0),
     config,
-    highScore: { bestScore: 0, dateAchieved: '', dailyStreak: 0, lastPlayedDate: '', dailyChallengeCompletedDate: '' },
+    highScore: {
+      bestScore: 0,
+      dateAchieved: '',
+      dailyStreak: 0,
+      lastPlayedDate: '',
+      // TODO(daily-challenge): dailyChallengeCompletedDate is persisted but no challenge
+      // mechanic is defined yet — implement when a future spec defines the trigger,
+      // validation, and reward.
+      dailyChallengeCompletedDate: '',
+    },
     rngSeed: seed,
     collisionMasks: [],
     nextEntityId: PROJECTILE_POOL_SIZE + ENEMY_POOL_SIZE + 1,
@@ -382,14 +391,27 @@ export function createEngine(
       }
     },
 
-    /** T082 — implemented in Phase 10F. Stub satisfies GameEngine interface. */
+    // T082: Restore 1 life, consume revive token, resume play from continue-offer
     grantRevive(): void {
-      // Full implementation in T082 (Phase 10F)
+      if (state.run.phase !== 'continue-offer' || !state.run.reviveAvailable) return;
+      state.run.reviveAvailable = false;
+      state.run.remainingLives = 1;
+      state.player.remainingLives = 1;
+      console.log('[Engine] grantRevive: life restored → resuming play');
+      events.emit('revive-granted', { remainingLives: 1 });
+      transitionPhase('playing');
     },
 
-    /** T083 — implemented in Phase 10F. Stub satisfies GameEngine interface. */
+    // T083: Double displayed session score; does NOT affect bestScore comparison
     grantScoreDouble(): void {
-      // Full implementation in T083 (Phase 10F)
+      if (state.run.phase !== 'continue-offer' || state.run.doublersUsed) return;
+      const originalScore = state.run.score;
+      const newScore = originalScore * 2;
+      state.run.score = newScore;
+      state.player.score = newScore;
+      state.run.doublersUsed = true;
+      console.log(`[Engine] grantScoreDouble: ${originalScore} → ${newScore}`);
+      events.emit('score-doubled', { newScore, originalScore });
     },
 
     setCollisionMasks(masks: CollisionMask[]): void {

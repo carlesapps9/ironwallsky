@@ -225,9 +225,9 @@ cross-cutting amendment features that extend US1–US5.
 
 ### 10F: Engine Methods (Revive, Score Double & Gap Stubs)
 
-- [ ] T082 [US4] Add `engine.grantRevive()` method: validate `run.phase === 'continue-offer'` and `run.reviveAvailable === true`; set `remainingLives = 1`, `reviveAvailable = false`; transition phase to `playing`; emit `revive-granted`; log state transition per constitution rule 6 in `src/core/engine.ts`
-- [ ] T083 [US4] Add `engine.grantScoreDouble()` method: validate `run.phase === 'continue-offer'` and `run.doublersUsed === false`; double `run.score`; set `doublersUsed = true`; emit `score-doubled`; do NOT re-evaluate `bestScore` (doubling happens post-run, does not affect personal best) in `src/core/engine.ts`
-- [ ] T091 [P] [US3] Add daily-challenge gap stub: insert a `// TODO(daily-challenge): dailyChallengeCompletedDate is persisted but no challenge mechanic is defined yet — implement when a future spec defines the trigger, validation, and reward` comment above the `highScore.dailyChallengeCompletedDate` reference added by T066 so the gap is visible to future implementers in `src/core/engine.ts`
+- [X] T082 [US4] Add `engine.grantRevive()` method: validate `run.phase === 'continue-offer'` and `run.reviveAvailable === true`; set `remainingLives = 1`, `reviveAvailable = false`; transition phase to `playing`; emit `revive-granted`; log state transition per constitution rule 6 in `src/core/engine.ts`
+- [X] T083 [US4] Add `engine.grantScoreDouble()` method: validate `run.phase === 'continue-offer'` and `run.doublersUsed === false`; double `run.score`; set `doublersUsed = true`; emit `score-doubled`; do NOT re-evaluate `bestScore` (doubling happens post-run, does not affect personal best) in `src/core/engine.ts`
+- [X] T091 [P] [US3] Add daily-challenge gap stub: insert a `// TODO(daily-challenge): dailyChallengeCompletedDate is persisted but no challenge mechanic is defined yet — implement when a future spec defines the trigger, validation, and reward` comment above the `highScore.dailyChallengeCompletedDate` reference added by T066 so the gap is visible to future implementers in `src/core/engine.ts`
 
 ### 10G: Tests (Amendment — Constitution Mandate)
 
