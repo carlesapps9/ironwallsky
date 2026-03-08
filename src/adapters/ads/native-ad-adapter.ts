@@ -9,6 +9,8 @@ export function createNativeAdAdapter(): AdService {
   let admobModule: typeof import('@capacitor-community/admob') | null = null;
   let interstitialId = '';
   let rewardedId = '';
+  let reviveId = '';
+  let doubleId = '';
 
   async function initialize(): Promise<void> {
     try {
@@ -18,9 +20,13 @@ export function createNativeAdAdapter(): AdService {
       if (platform === 'ios') {
         interstitialId = import.meta.env.VITE_ADMOB_INTERSTITIAL_IOS as string;
         rewardedId = import.meta.env.VITE_ADMOB_REWARDED_IOS as string;
+        reviveId = import.meta.env.VITE_ADMOB_REVIVE_IOS as string;
+        doubleId = import.meta.env.VITE_ADMOB_DOUBLE_IOS as string;
       } else {
         interstitialId = import.meta.env.VITE_ADMOB_INTERSTITIAL_ANDROID as string;
         rewardedId = import.meta.env.VITE_ADMOB_REWARDED_ANDROID as string;
+        reviveId = import.meta.env.VITE_ADMOB_REVIVE_ANDROID as string;
+        doubleId = import.meta.env.VITE_ADMOB_DOUBLE_ANDROID as string;
       }
 
       admobModule = await import('@capacitor-community/admob');
@@ -81,9 +87,47 @@ export function createNativeAdAdapter(): AdService {
     }
   }
 
+  // T079: Revive Shield — dedicated placement, own ad unit ID
+  async function showRevive(): Promise<AdResult> {
+    if (!initialized || !admobModule) return 'not-ready';
+
+    try {
+      const { AdMob } = admobModule;
+
+      await AdMob.prepareRewardVideoAd({
+        adId: reviveId || rewardedId, // fallback to continue ad unit if not configured
+      });
+
+      await AdMob.showRewardVideoAd();
+      return 'shown';
+    } catch (err) {
+      console.warn('[Ads] Revive Shield ad failed:', err);
+      return 'failed';
+    }
+  }
+
+  // T079: Score Doubler — dedicated placement, own ad unit ID
+  async function showDouble(): Promise<AdResult> {
+    if (!initialized || !admobModule) return 'not-ready';
+
+    try {
+      const { AdMob } = admobModule;
+
+      await AdMob.prepareRewardVideoAd({
+        adId: doubleId || rewardedId, // fallback to continue ad unit if not configured
+      });
+
+      await AdMob.showRewardVideoAd();
+      return 'shown';
+    } catch (err) {
+      console.warn('[Ads] Score Doubler ad failed:', err);
+      return 'failed';
+    }
+  }
+
   function isAvailable(): boolean {
     return initialized;
   }
 
-  return { initialize, showInterstitial, showRewarded, isAvailable };
+  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, isAvailable };
 }

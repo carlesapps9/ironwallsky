@@ -197,7 +197,8 @@ export class GameOverScene extends Phaser.Scene {
     btn.on('pointerdown', async () => {
       if (this.adService && this.adService.isAvailable()) {
         try {
-          const result = await this.adService.showRewarded();
+          // T079: Use dedicated showRevive() placement (not generic showRewarded)
+          const result = await this.adService.showRevive();
           if (result === 'shown') {
             this.engine.grantRevive();
             this.scene.start('PlayScene', { engine: this.engine });
@@ -230,7 +231,8 @@ export class GameOverScene extends Phaser.Scene {
     btn.on('pointerdown', async () => {
       if (this.adService && this.adService.isAvailable()) {
         try {
-          const result = await this.adService.showRewarded();
+          // T080: Use dedicated showDouble() placement (not generic showRewarded)
+          const result = await this.adService.showDouble();
           if (result === 'shown') {
             this.engine.grantScoreDouble();
             // Refresh scene to show updated (doubled) score

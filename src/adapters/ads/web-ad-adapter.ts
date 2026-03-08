@@ -146,9 +146,69 @@ export function createWebAdAdapter(): AdService {
     }
   }
 
+  // T080: Revive Shield — distinct GPT slot name, same overlay pattern, 5 s timeout
+  async function showRevive(): Promise<AdResult> {
+    if (!initialized) return 'not-ready';
+
+    try {
+      const divId = 'iws-revive';
+      const overlay = createAdOverlay(divId);
+
+      const result = await Promise.race([
+        new Promise<AdResult>((resolve) => {
+          // GPT slot: /ironwallsky/revive-shield — real GPT display would go here
+          setTimeout(() => {
+            overlay.remove();
+            resolve('shown');
+          }, 3000);
+        }),
+        new Promise<AdResult>((resolve) =>
+          setTimeout(() => {
+            overlay.remove();
+            resolve('failed');
+          }, 5000),
+        ),
+      ]);
+
+      return result;
+    } catch {
+      return 'failed';
+    }
+  }
+
+  // T080: Score Doubler — distinct GPT slot name, same overlay pattern, 5 s timeout
+  async function showDouble(): Promise<AdResult> {
+    if (!initialized) return 'not-ready';
+
+    try {
+      const divId = 'iws-double';
+      const overlay = createAdOverlay(divId);
+
+      const result = await Promise.race([
+        new Promise<AdResult>((resolve) => {
+          // GPT slot: /ironwallsky/score-doubler — real GPT display would go here
+          setTimeout(() => {
+            overlay.remove();
+            resolve('shown');
+          }, 3000);
+        }),
+        new Promise<AdResult>((resolve) =>
+          setTimeout(() => {
+            overlay.remove();
+            resolve('failed');
+          }, 5000),
+        ),
+      ]);
+
+      return result;
+    } catch {
+      return 'failed';
+    }
+  }
+
   function isAvailable(): boolean {
     return initialized;
   }
 
-  return { initialize, showInterstitial, showRewarded, isAvailable };
+  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, isAvailable };
 }
