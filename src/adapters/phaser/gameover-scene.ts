@@ -1,6 +1,8 @@
-// src/adapters/phaser/gameover-scene.ts — Game Over scene (US1+US4)
+// src/adapters/phaser/gameover-scene.ts — Game Over / Continue-Offer scene (US1+US4)
 // Displays final score, personal best, run duration, enemies destroyed.
-// Retry button, rewarded ad continue button.
+// T074: Revive Shield button (continue-offer phase, reviveAvailable).
+// T075: Score Doubler button (continue-offer phase, !doublersUsed).
+// T076: Share Card button (continue-offer + game-over phases).
 
 import Phaser from 'phaser';
 import type { GameEngine } from '@core/engine.js';
@@ -111,11 +113,32 @@ export class GameOverScene extends Phaser.Scene {
       !run.continueUsed &&
       config.continueEnabled
     ) {
-      this.createContinueButton(cx, cy + 50);
+      this.createContinueButton(cx, cy + 30);
     }
 
+    // T074: Revive Shield button — continue-offer phase, reviveAvailable, reviveEnabled flag
+    if (
+      run.phase === 'continue-offer' &&
+      run.reviveAvailable &&
+      config.reviveEnabled
+    ) {
+      this.createReviveButton(cx, cy + 80);
+    }
+
+    // T075: Score Doubler button — continue-offer phase, !doublersUsed, doublerEnabled flag
+    if (
+      run.phase === 'continue-offer' &&
+      !run.doublersUsed &&
+      config.doublerEnabled
+    ) {
+      this.createDoublerButton(cx, cy + 130);
+    }
+
+    // T076: Share Score button — both continue-offer and game-over phases
+    this.createShareButton(cx, cy + 170, run.score, config.scoreTweetTemplate);
+
     // Retry button (48x48 minimum touch target per FR-024)
-    this.createRetryButton(cx, cy + 120);
+    this.createRetryButton(cx, cy + 220);
   }
 
   private createContinueButton(x: number, y: number): void {
@@ -150,10 +173,135 @@ export class GameOverScene extends Phaser.Scene {
           // Option remains available; player can retry the ad or tap Retry
         } catch {
           // Fall through — never block retry per FR-017
-          // Continue option remains since it was not consumed
         }
       }
-      // If ad service unavailable, do nothing — player must use Retry button
+    });
+  }
+
+  // T074: Revive Shield — restore 1 life, set reviveAvailable = false, resume play
+  private createReviveButton(x: number, y: number): void {
+    const btn = this.add
+      .text(x, y, '🛡 Revive Shield (Ad)', {
+        fontSize: '15px',
+        color: '#000000',
+        fontFamily: 'monospace',
+        backgroundColor: '#ffaa00',
+        padding: { left: 14, right: 14, top: 10, bottom: 10 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setInteractive({ useHandCursor: true });
+
+    btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
+
+    btn.on('pointerdown', async () => {
+      if (this.adService && this.adService.isAvailable()) {
+        try {
+          const result = await this.adService.showRewarded();
+          if (result === 'shown') {
+            this.engine.grantRevive();
+            this.scene.start('PlayScene', { engine: this.engine });
+            return;
+          }
+          // Failed/skipped — reviveAvailable unchanged; player may retry
+        } catch {
+          // Never block retry per FR-017
+        }
+      }
+    });
+  }
+
+  // T075: Score Doubler — doubles run.score display; does NOT affect bestScore comparison
+  private createDoublerButton(x: number, y: number): void {
+    const btn = this.add
+      .text(x, y, '✕2 Score Doubler (Ad)', {
+        fontSize: '15px',
+        color: '#000000',
+        fontFamily: 'monospace',
+        backgroundColor: '#cc44ff',
+        padding: { left: 14, right: 14, top: 10, bottom: 10 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setInteractive({ useHandCursor: true });
+
+    btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
+
+    btn.on('pointerdown', async () => {
+      if (this.adService && this.adService.isAvailable()) {
+        try {
+          const result = await this.adService.showRewarded();
+          if (result === 'shown') {
+            this.engine.grantScoreDouble();
+            // Refresh scene to show updated (doubled) score
+            this.scene.restart();
+            return;
+          }
+        } catch {
+          // Never block retry per FR-017
+        }
+      }
+    });
+  }
+
+  // T076: Share Card — Web Share API with clipboard fallback; no PII (constitution rule 40)
+  private createShareButton(x: number, y: number, score: number, template: string): void {
+    const btn = this.add
+      .text(x, y, '↗ Share Score', {
+        fontSize: '15px',
+        color: '#ffffff',
+        fontFamily: 'monospace',
+        backgroundColor: '#1d9bf0',
+        padding: { left: 14, right: 14, top: 10, bottom: 10 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setInteractive({ useHandCursor: true });
+
+    btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
+
+    // Toast feedback text
+    const toast = this.add
+      .text(x, y + 40, '', {
+        fontSize: '13px',
+        color: '#00ff88',
+        fontFamily: 'monospace',
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setVisible(false);
+
+    btn.on('pointerdown', async () => {
+      const text = template.replace('{score}', String(score));
+      const shareData = {
+        title: 'Iron Wall Sky',
+        text,
+        url: typeof window !== 'undefined' ? window.location.href : '',
+      };
+
+      try {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          await navigator.share(shareData);
+        } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+          this.showToast(toast, 'Copied!');
+        }
+      } catch {
+        // Share cancelled or unavailable — silently ignore
+      }
+    });
+  }
+
+  private showToast(toast: Phaser.GameObjects.Text, message: string): void {
+    toast.setText(message);
+    toast.setVisible(true);
+    toast.setAlpha(1);
+    this.tweens.add({
+      targets: toast,
+      alpha: 0,
+      delay: 1200,
+      duration: 600,
+      onComplete: () => toast.setVisible(false),
     });
   }
 
