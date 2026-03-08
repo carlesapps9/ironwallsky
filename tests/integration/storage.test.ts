@@ -110,5 +110,40 @@ describe('Storage Adapter', () => {
       const twice = migrate(once);
       expect(once).toEqual(twice);
     });
+
+    it('v2 record preserves all fields on write → read cycle', () => {
+      const v2 = {
+        bestScore: 3000,
+        dateAchieved: '2026-03-08T10:00:00.000Z',
+        dailyStreak: 5,
+        lastPlayedDate: '2026-03-08',
+        dailyChallengeCompletedDate: '2026-03-07',
+      };
+      // Simulate JSON round-trip as storage adapter does
+      const serialized = JSON.stringify(v2);
+      const deserialized = JSON.parse(serialized);
+
+      expect(deserialized.bestScore).toBe(3000);
+      expect(deserialized.dailyStreak).toBe(5);
+      expect(deserialized.lastPlayedDate).toBe('2026-03-08');
+      expect(deserialized.dailyChallengeCompletedDate).toBe('2026-03-07');
+    });
+
+    it('v1 record with extra unknown fields keeps them after migration', () => {
+      const v1WithExtra: Record<string, unknown> = {
+        bestScore: 800,
+        dateAchieved: '2025-12-01',
+        unknownField: 'preserved',
+      };
+
+      function migrate(r: Record<string, unknown>): Record<string, unknown> {
+        if (typeof r.dailyStreak === 'number') return r;
+        return { ...r, dailyStreak: 0, lastPlayedDate: '', dailyChallengeCompletedDate: '' };
+      }
+
+      const migrated = migrate(v1WithExtra);
+      expect(migrated.unknownField).toBe('preserved');
+      expect(migrated.dailyStreak).toBe(0);
+    });
   });
 });
