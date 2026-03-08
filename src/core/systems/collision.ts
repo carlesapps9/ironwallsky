@@ -136,21 +136,37 @@ export function updateCollisions(state: GameState, events: GameEventBus): void {
 
       if (enemy.health <= 0) {
         enemy.active = false;
-        state.run.score += enemy.scoreValue;
+
+        // T070: apply combo multiplier to score award
+        const multiplied = Math.round(enemy.scoreValue * state.run.comboMultiplier);
+        state.run.score += multiplied;
         state.player.score = state.run.score;
         state.run.enemiesDestroyed++;
+
+        // T070: increment combo; step multiplier; reset window timer
+        state.run.comboCount++;
+        state.run.comboMultiplier = Math.min(
+          state.config.comboMultiplierCap,
+          state.run.comboMultiplier + state.config.comboMultiplierStep,
+        );
+        state.run.comboLastHitElapsedMs = 0;
 
         events.emit('enemy-destroyed', {
           id: enemy.id,
           x: enemy.position.x,
           y: enemy.position.y,
           killedByProjectileId: proj.id,
-          scoreAwarded: enemy.scoreValue,
+          scoreAwarded: multiplied,
         });
 
         events.emit('score-changed', {
           score: state.run.score,
-          delta: enemy.scoreValue,
+          delta: multiplied,
+        });
+
+        events.emit('combo-updated', {
+          count: state.run.comboCount,
+          multiplier: state.run.comboMultiplier,
         });
       }
 

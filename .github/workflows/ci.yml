@@ -116,7 +116,9 @@ jobs:
 
       - name: Verify content-hashed assets
         run: |
-          UNHASHED=$(find dist/assets -name '*.js' -o -name '*.css' | grep -Ev '\.[a-f0-9]{8,}\.' || true)
+          # Vite content-hashes use base64url: dash + [A-Za-z0-9_-]{8} before extension
+          # e.g. index-D8zZidju.js, phaser-0YPJO2g1.js
+          UNHASHED=$(find dist/assets -name '*.js' -o -name '*.css' | grep -Ev -- '-[A-Za-z0-9_-]{5,}\.(js|css)$' || true)
           if [ -n "$UNHASHED" ]; then
             echo "::error::Unhashed assets detected — cache-busting will break for:"
             echo "$UNHASHED"
