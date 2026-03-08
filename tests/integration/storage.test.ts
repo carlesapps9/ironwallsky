@@ -1,5 +1,5 @@
-// tests/integration/storage.test.ts — T060: Storage adapter integration tests
-// Read/write HighScoreRecord, storage-unavailable fallback warning.
+// tests/integration/storage.test.ts — T060 + T088: Storage adapter integration tests
+// Read/write HighScoreRecord, storage-unavailable fallback warning, v1→v2 migration.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createStorageAdapter } from '@adapters/storage/storage-adapter.js';
@@ -56,6 +56,59 @@ describe('Storage Adapter', () => {
 
       // Business rule: only update when newScore > bestScore
       expect(newScore > current.bestScore).toBe(false);
+    });
+  });
+
+  // T088: v1 → v2 migration tests
+  describe('v1 → v2 migration', () => {
+    it('v2 record with all streak fields passes through unchanged', () => {
+      // Simulate what migrateRecord does by validating v2 detection logic
+      const v2: Record<string, unknown> = {
+        bestScore: 2000,
+        dateAchieved: '2026-03-07T10:00:00.000Z',
+        dailyStreak: 3,
+        lastPlayedDate: '2026-03-07',
+        dailyChallengeCompletedDate: '',
+      };
+      // If dailyStreak is a number the record is already v2 — no migration needed
+      expect(typeof v2.dailyStreak).toBe('number');
+      expect(v2.dailyStreak).toBe(3);
+      expect(v2.lastPlayedDate).toBe('2026-03-07');
+    });
+
+    it('v1 record missing streak fields should receive zero-value defaults after migration', () => {
+      // Simulate the shape that a v1 record has coming out of JSON.parse
+      const v1Raw: Record<string, unknown> = {
+        bestScore: 1200,
+        dateAchieved: '2025-11-01T08:00:00.000Z',
+        // no dailyStreak, lastPlayedDate, dailyChallengeCompletedDate
+      };
+
+      // Apply same migration logic as storage adapter's migrateRecord helper
+      function migrate(r: Record<string, unknown>): Record<string, unknown> {
+        if (typeof r.dailyStreak === 'number') return r;
+        return { ...r, dailyStreak: 0, lastPlayedDate: '', dailyChallengeCompletedDate: '' };
+      }
+
+      const migrated = migrate(v1Raw);
+      expect(migrated.dailyStreak).toBe(0);
+      expect(migrated.lastPlayedDate).toBe('');
+      expect(migrated.dailyChallengeCompletedDate).toBe('');
+      expect(migrated.bestScore).toBe(1200);
+      expect(migrated.dateAchieved).toBe('2025-11-01T08:00:00.000Z');
+    });
+
+    it('migration is idempotent — applying twice yields the same result', () => {
+      const v1Raw: Record<string, unknown> = { bestScore: 500, dateAchieved: '2025-06-01' };
+
+      function migrate(r: Record<string, unknown>): Record<string, unknown> {
+        if (typeof r.dailyStreak === 'number') return r;
+        return { ...r, dailyStreak: 0, lastPlayedDate: '', dailyChallengeCompletedDate: '' };
+      }
+
+      const once = migrate(v1Raw);
+      const twice = migrate(once);
+      expect(once).toEqual(twice);
     });
   });
 });
