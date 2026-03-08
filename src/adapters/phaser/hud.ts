@@ -1,6 +1,7 @@
 // src/adapters/phaser/hud.ts — HUD overlay (US1)
 // Score text display, row of heart/shield life icons.
 // Updates on score-changed and life-lost events.
+// T072: combo multiplier display (combo-updated event).
 
 import Phaser from 'phaser';
 import type { GameEventBus } from '@core/events.js';
@@ -13,6 +14,9 @@ export class HUD {
   private events: GameEventBus;
   private maxLives: number;
 
+  // T072: combo display
+  private comboText!: Phaser.GameObjects.Text;
+
   constructor(scene: Phaser.Scene, events: GameEventBus, config: GameConfig) {
     this.scene = scene;
     this.events = events;
@@ -20,6 +24,7 @@ export class HUD {
 
     this.createScoreDisplay();
     this.createLifeIcons(config.maxLives);
+    this.createComboDisplay();
     this.subscribeToEvents();
   }
 
@@ -31,6 +36,21 @@ export class HUD {
     });
     this.scoreText.setDepth(100);
     this.scoreText.setScrollFactor(0);
+  }
+
+  // T072: combo multiplier text — positioned below score, hidden at 1.0
+  private createComboDisplay(): void {
+    this.comboText = this.scene.add.text(10, 34, '', {
+      fontSize: '15px',
+      color: '#ffdd00',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      stroke: '#aa6600',
+      strokeThickness: 2,
+    });
+    this.comboText.setDepth(100);
+    this.comboText.setScrollFactor(0);
+    this.comboText.setVisible(false);
   }
 
   private createLifeIcons(maxLives: number): void {
@@ -54,6 +74,26 @@ export class HUD {
     this.events.on('life-lost', (payload) => {
       this.updateLives(payload.remaining);
     });
+
+    // T072: show/hide combo multiplier; animate on change
+    this.events.on('combo-updated', (payload) => {
+      if (payload.multiplier <= 1.0) {
+        this.comboText.setVisible(false);
+        return;
+      }
+      const label = `x${payload.multiplier.toFixed(1)} COMBO (${payload.count})`;
+      this.comboText.setText(label);
+      this.comboText.setVisible(true);
+      // Pulse animation on each combo increment
+      this.scene.tweens.add({
+        targets: this.comboText,
+        scaleX: 1.3,
+        scaleY: 1.3,
+        duration: 80,
+        yoyo: true,
+        ease: 'Sine.easeOut',
+      });
+    });
   }
 
   private updateLives(remaining: number): void {
@@ -69,10 +109,13 @@ export class HUD {
     for (let i = 0; i < this.heartIcons.length; i++) {
       this.heartIcons[i].setVisible(i < lives);
     }
+    this.comboText.setVisible(false);
+    this.comboText.setText('');
   }
 
   destroy(): void {
     this.scoreText.destroy();
+    this.comboText.destroy();
     for (const icon of this.heartIcons) {
       icon.destroy();
     }
