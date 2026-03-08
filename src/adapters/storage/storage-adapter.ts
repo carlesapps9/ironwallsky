@@ -39,13 +39,28 @@ export function createStorageAdapter(): StorageAdapter {
     }
   }
 
+  /**
+   * Migrates a v1 HighScoreRecord (no streak fields) to v2 by applying
+   * zero-value defaults for the three new fields. Returns the record unchanged
+   * if it already has v2 fields.
+   */
+  function migrateRecord(record: HighScoreRecord): HighScoreRecord {
+    if (typeof record.dailyStreak === 'number') return record; // already v2
+    return {
+      ...record,
+      dailyStreak: 0,
+      lastPlayedDate: '',
+      dailyChallengeCompletedDate: '',
+    };
+  }
+
   async function loadFromLocalStorage(): Promise<HighScoreRecord | null> {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as HighScoreRecord;
       if (typeof parsed.bestScore === 'number' && typeof parsed.dateAchieved === 'string') {
-        return parsed;
+        return migrateRecord(parsed);
       }
       return null;
     } catch {
@@ -82,7 +97,10 @@ export function createStorageAdapter(): StorageAdapter {
         const tx = db.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
         const request = store.get('highscore');
-        request.onsuccess = () => resolve(request.result ?? null);
+        request.onsuccess = () => {
+          const raw = request.result ?? null;
+          resolve(raw ? migrateRecord(raw as HighScoreRecord) : null);
+        };
         request.onerror = () => resolve(null);
       });
     } catch {

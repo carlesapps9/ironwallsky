@@ -52,6 +52,25 @@ export function createAnalyticsAdapter(): AnalyticsAdapter {
     events.on('difficulty-increased', (payload) => {
       track({ name: 'difficulty_up', params: { level: payload.level } });
     });
+
+    // T090: Amendment analytics — rewarded ad completions and share card taps
+    events.on('revive-granted', () => {
+      track({ name: 'ad_rewarded_complete', params: { placement: 'revive' } });
+    });
+
+    events.on('score-doubled', (payload) => {
+      track({
+        name: 'ad_rewarded_complete',
+        params: { placement: 'double', newScore: payload.newScore },
+      });
+    });
+
+    events.on('share-card-tapped', (payload) => {
+      track({
+        name: 'share_card_tapped',
+        params: { score: payload.score, method: payload.method },
+      });
+    });
   }
 
   return { track, subscribeToGameEvents };

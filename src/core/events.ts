@@ -75,6 +75,13 @@ export interface ScoreDoubledEvent {
   originalScore: number;
 }
 
+export interface ShareCardTappedEvent {
+  /** The score value displayed on the share card. */
+  score: number;
+  /** Whether the Web Share API or clipboard fallback was used. */
+  method: 'native' | 'clipboard';
+}
+
 export interface LifeLostEvent {
   remaining: number;
 }
@@ -106,7 +113,8 @@ export type GameEventType =
   | 'high-score-beaten'
   | 'combo-updated'
   | 'revive-granted'
-  | 'score-doubled';
+  | 'score-doubled'
+  | 'share-card-tapped';
 
 /** Maps each event type to its payload shape. */
 export interface GameEventMap {
@@ -125,6 +133,7 @@ export interface GameEventMap {
   'combo-updated': ComboUpdatedEvent;
   'revive-granted': ReviveGrantedEvent;
   'score-doubled': ScoreDoubledEvent;
+  'share-card-tapped': ShareCardTappedEvent;
 }
 
 // ─── Event Bus Interface ───

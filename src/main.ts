@@ -16,6 +16,40 @@ import { createAudioAdapter } from '@adapters/audio/audio-adapter.js';
 // Create the core engine
 const engine = createEngine(DEFAULT_CONFIG, Date.now());
 
+// T078: Remote config fetch — merges server-provided config over defaults at boot.
+// Disabled when remoteConfigUrl is '' (default). Never blocks gameplay start.
+async function initRemoteConfig(): Promise<void> {
+  const url = DEFAULT_CONFIG.remoteConfigUrl;
+  if (!url) return;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const remote = await response.json() as Record<string, unknown>;
+
+    // Merge only known top-level keys (type guard) into the live engine config
+    const liveConfig = engine.getState().config as unknown as Record<string, unknown>;
+    const knownKeys = new Set(Object.keys(DEFAULT_CONFIG));
+    for (const [key, value] of Object.entries(remote)) {
+      if (knownKeys.has(key) && typeof value === typeof (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key]) {
+        liveConfig[key] = value;
+      }
+    }
+    console.log('[RemoteConfig] Merged remote config successfully');
+  } catch (err) {
+    const reason = err instanceof Error && err.name === 'AbortError' ? 'timeout' : 'fetch error';
+    console.log(`[RemoteConfig] Skipped (${reason}) — using defaults`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// Fire-and-forget — gameplay starts immediately without waiting for remote config
+initRemoteConfig();
+
 // Wire storage adapter (US2)
 const storage = createStorageAdapter();
 

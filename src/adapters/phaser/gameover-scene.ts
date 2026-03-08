@@ -282,8 +282,10 @@ export class GameOverScene extends Phaser.Scene {
       try {
         if (typeof navigator !== 'undefined' && navigator.share) {
           await navigator.share(shareData);
+          this.engine.events.emit('share-card-tapped', { score, method: 'native' });
         } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
           await navigator.clipboard.writeText(text);
+          this.engine.events.emit('share-card-tapped', { score, method: 'clipboard' });
           this.showToast(toast, 'Copied!');
         }
       } catch {
