@@ -79,7 +79,7 @@
 
 **Independent Test**: `npm run build && npm run preview` — load the game locally, verify Phaser renders, no console CSP violations, service worker registers, ad adapter initializes (or gracefully fails if ad IDs not configured).
 
-- [ ] T011 [P] [US4] Add `<meta http-equiv="Content-Security-Policy">` tag inside `<head>` of `index.html` with the policy from research.md §6: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://pagead2.googlesyndication.com https://*.google.com https://*.doubleclick.net; frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; worker-src 'self'; font-src 'self'`
+- [x] T011 [P] [US4] Add `<meta http-equiv="Content-Security-Policy">` tag inside `<head>` of `index.html` with the policy from research.md §6: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://pagead2.googlesyndication.com https://*.google.com https://*.doubleclick.net; frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; worker-src 'self'; font-src 'self'`
 - [ ] T012 [US4] Run `npm run build` and open `dist/index.html` in a browser (or `npm run preview`) to verify zero CSP violation errors in DevTools console for Phaser canvas renderer, service worker script, and web manifest link
 
 **Checkpoint**: CSP meta tag present, build passes, no Phaser console CSP errors — US4 complete
