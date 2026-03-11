@@ -1,0 +1,63 @@
+version: 2
+
+updates:
+  # ── npm ──────────────────────────────────────────────────────────────────
+  # Weekly minor/patch updates. Capacitor major-version bumps (v6 → v8)
+  # require manual planning (see specs/main/tasks-capacitor8-upgrade.md)
+  # and are explicitly ignored here.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    groups:
+      production-dependencies:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Capacitor major upgrades require coordinated manual planning
+      - dependency-name: "@capacitor/core"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@capacitor/android"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@capacitor/cli"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@capacitor/splash-screen"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@capacitor-community/admob"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@capacitor/assets"
+        update-types: ["version-update:semver-major"]
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  # Weekly updates for all action pinned versions.
+  # Major-version bumps (e.g. actions/checkout@v4 → v5) require manual review.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Major-version action bumps require manual validation of breaking changes
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

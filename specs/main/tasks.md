@@ -54,7 +54,7 @@
 
 **Independent Test**: Push `.github/dependabot.yml` to a branch and confirm GitHub shows "Dependabot enabled" on the repo Security tab. Dependabot creates its first batch of PRs within 24 h of the weekly schedule trigger (or manually trigger via GitHub UI).
 
-- [ ] T007 [US2] Create `.github/dependabot.yml` with two ecosystems: **(1) npm** — weekly schedule, minor/patch updates grouped by type (production vs dev), Capacitor major-version updates ignored (requires manual planning per research.md §4); **(2) github-actions** — weekly schedule, major-version auto-merge disabled
+- [x] T007 [US2] Create `.github/dependabot.yml` with two ecosystems: **(1) npm** — weekly schedule, minor/patch updates grouped by type (production vs dev), Capacitor major-version updates ignored (requires manual planning per research.md §4); **(2) github-actions** — weekly schedule, major-version auto-merge disabled
 
 **Checkpoint**: `.github/dependabot.yml` present with both ecosystems — US2 complete
 
