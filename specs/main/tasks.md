@@ -18,7 +18,7 @@
 
 **Purpose**: Baseline audit — confirm current vulnerability state before making changes.
 
-- [ ] T001 Run `npm audit --json > specs/main/audit-baseline.json` and verify 10 high-severity findings match research.md
+- [x] T001 Run `npm audit --json > specs/main/audit-baseline.json` and verify 10 high-severity findings match research.md
 
 **Checkpoint**: Baseline documented — implementation can begin
 
@@ -38,9 +38,9 @@
 
 **Independent Test**: `npm audit --audit-level=high` exits 0 (or reports only the 3 unresolvable minimatch CVEs via `replace` if the scoped override doesn't cover all paths). `npm ci && npm run build` passes. `npm test` passes.
 
-- [ ] T002 [US1] Add `"overrides"` block to `package.json` with `"serialize-javascript": "^7.0.4"` and `"tar": "^7.5.11"` to patch build-time RCE and path-traversal CVEs
-- [ ] T003 [US1] Add scoped override `"replace>minimatch": "^5.1.0"` in `package.json` overrides to address the 3 minimatch ReDoS CVEs via the `@capacitor/assets` → `@trapezedev/project` → `replace` path
-- [ ] T004 [US1] Fix `vite-plugin-pwa` version range in `package.json` devDependencies from `"^0.21.0"` to `"^1.2.0"` to match installed version and eliminate the phantom `vite-plugin-pwa` high alert
+- [x] T002 [US1] Add `"overrides"` block to `package.json` with `"serialize-javascript": "^7.0.4"` and `"tar": "^7.5.11"` to patch build-time RCE and path-traversal CVEs
+- [x] T003 [US1] Add scoped override `"replace>minimatch": "^5.1.0"` in `package.json` overrides to address the 3 minimatch ReDoS CVEs via the `@capacitor/assets` → `@trapezedev/project` → `replace` path
+- [x] T004 [US1] Fix `vite-plugin-pwa` version range in `package.json` devDependencies from `"^0.21.0"` to `"^1.2.0"` to match installed version and eliminate the phantom `vite-plugin-pwa` high alert
 - [ ] T005 [US1] Run `npm install` to apply overrides, then run `npm audit --audit-level=high` and confirm the count is either **0** (if the scoped minimatch override fully resolves all CVEs) or **≤ 3** scoped only to `replace/node_modules/minimatch` (accepted risk — `replace` is unmaintained, patterns are developer-controlled at build time); record the actual remaining count with full advisory details in `specs/main/audit-baseline.json`
 - [ ] T006 [US1] Run `npm test` and `npm run build` to confirm overrides do not break Vitest unit/integration tests or the Vite production build; then run `npx cap ls` to verify the Capacitor Android project configuration remains valid after the `tar` and `serialize-javascript` overrides (satisfies NFR-SEC-02 — if Android SDK is available locally, also run `npm run sync:android` to confirm the full sync succeeds)
 
