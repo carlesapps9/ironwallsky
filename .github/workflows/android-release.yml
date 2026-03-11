@@ -118,6 +118,15 @@ jobs:
           path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
 
+      # ── 8b. Native debug symbols ─────────────────────────────────────────
+      - name: Upload native debug symbols artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-debug-symbols-${{ github.sha }}
+          path: android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+          retention-days: 30
+          if-no-files-found: warn
+
       # ── 9. APK (sideload / internal testing) — optional ─────────────────
       - name: Build signed release APK
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_apk == 'true' || github.event_name == 'push' }}
@@ -149,6 +158,13 @@ jobs:
           if [ -f "$APK" ]; then
             SIZE=$(du -sh "$APK" | cut -f1)
             echo "✅ **APK** (sideload): \`$SIZE\`  — artifact: \`app-release-apk-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          SYMBOLS="android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip"
+          if [ -f "$SYMBOLS" ]; then
+            SIZE=$(du -sh "$SYMBOLS" | cut -f1)
+            echo "✅ **Native debug symbols**: \`$SIZE\`  — artifact: \`native-debug-symbols-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Native debug symbols not found (no native .so files, or ndk config missing)" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Commit: \`${{ github.sha }}\` by **${{ github.actor }}**" >> $GITHUB_STEP_SUMMARY
