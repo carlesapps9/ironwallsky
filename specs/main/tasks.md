@@ -104,8 +104,8 @@
 
 **Purpose**: Documentation and deferred work tracking.
 
-- [ ] T014 [P] Add a `## Security` section to `README.md` documenting: (a) how to run `npm audit`, (b) the accepted-risk minimatch CVEs and why they're low-risk, (c) that Capacitor 8 upgrade is planned to fully resolve the tar CVEs
-- [ ] T015 [P] Create `specs/main/tasks-capacitor8-upgrade.md` as a planning stub for the deferred Capacitor 6 → 8 major version upgrade (FR-SEC-02), listing the companion package upgrades required: `@capacitor/core`, `@capacitor/android`, `@capacitor/splash-screen`, `@capacitor-community/admob` all → v8; Android `variables.gradle` SDK version bump; full CI + Android build validation
+- [x] T014 [P] Add a `## Security` section to `README.md` documenting: (a) how to run `npm audit`, (b) the accepted-risk minimatch CVEs and why they're low-risk, (c) that Capacitor 8 upgrade is planned to fully resolve the tar CVEs
+- [x] T015 [P] Create `specs/main/tasks-capacitor8-upgrade.md` as a planning stub for the deferred Capacitor 6 → 8 major version upgrade (FR-SEC-02), listing the companion package upgrades required: `@capacitor/core`, `@capacitor/android`, `@capacitor/splash-screen`, `@capacitor-community/admob` all → v8; Android `variables.gradle` SDK version bump; full CI + Android build validation
 
 ---
 
