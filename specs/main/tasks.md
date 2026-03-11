@@ -94,7 +94,7 @@
 
 > **Prerequisite**: US1 (T002–T006) must be merged first, otherwise this gate will fail on the existing overridden findings.
 
-- [ ] T013 [US5] Add `npm audit --audit-level=high` step to the `lint-typecheck` job in `.github/workflows/ci.yml`, positioned after `npm ci` and before the ESLint step, with name `"Security audit"` and a comment referencing the overrides in `package.json` for any remaining accepted-risk findings
+- [x] T013 [US5] Add `npm audit --audit-level=high` step to the `lint-typecheck` job in `.github/workflows/ci.yml`, positioned after `npm ci` and before the ESLint step, with name `"Security audit"` and a comment referencing the overrides in `package.json` for any remaining accepted-risk findings
 
 **Checkpoint**: CI workflow includes audit gate, lint-typecheck job runs it — US5 complete
 
