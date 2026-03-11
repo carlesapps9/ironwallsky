@@ -35,6 +35,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Security audit
+        # Fails the build on any high or critical severity CVE.
+        # Low/moderate findings in transitive deps are suppressed via the
+        # `overrides` block in package.json — see specs/main/tasks.md US1.
+        run: npm audit --audit-level=high
+
       - name: ESLint
         run: npm run lint
 
