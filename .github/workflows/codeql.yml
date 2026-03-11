@@ -1,0 +1,43 @@
+name: CodeQL
+
+# Continuous static analysis for JavaScript/TypeScript security vulnerabilities.
+# Scans for: XSS, prototype pollution, insecure randomness, regex injection.
+# See: specs/main/spec.md FR-SEC-05, specs/main/research.md §5
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly scan on main every Monday at 07:00 UTC
+    - cron: '0 7 * * 1'
+
+concurrency:
+  # Cancel in-progress duplicate runs on the same branch/PR
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # build-mode: none — no compilation step needed for JS/TS
+          build-mode: none
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript
