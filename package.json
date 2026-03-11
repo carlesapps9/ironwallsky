@@ -23,13 +23,13 @@
   "dependencies": {
     "@capacitor-community/admob": "^6.0.0",
     "@capacitor/android": "^6.2.1",
-    "@capacitor/cli": "^6.0.0",
     "@capacitor/core": "^6.0.0",
     "@capacitor/splash-screen": "^6.0.4",
     "phaser": "^3.80.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.0.0",
     "@playwright/test": "^1.49.0",
     "eslint": "^9.0.0",
     "jiti": "^2.6.1",
@@ -41,7 +41,6 @@
   },
   "overrides": {
     "serialize-javascript": "^7.0.4",
-    "tar": "^7.5.11",
     "replace": {
       "minimatch": "^5.1.0"
     }
