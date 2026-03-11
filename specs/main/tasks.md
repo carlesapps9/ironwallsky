@@ -66,8 +66,8 @@
 
 **Independent Test**: Push `.github/workflows/codeql.yml` to a branch — the CodeQL action appears in the Actions tab and completes successfully. Confirm zero alerts on the initial scan (codebase was pre-verified clean in research.md §5).
 
-- [ ] T009 [P] [US3] Create `.github/workflows/codeql.yml` that triggers on `push` to non-main branches, `pull_request` to main, and a weekly `schedule` cron; configure `language: javascript-typescript` with `build-mode: none`
-- [ ] T010 [P] [US3] Set CodeQL job to use `actions/checkout@v4`, `github/codeql-action/init@v3`, `github/codeql-action/analyze@v3` with `category: /language:javascript-typescript`; add `concurrency` group to cancel in-progress duplicate runs
+- [x] T009 [P] [US3] Create `.github/workflows/codeql.yml` that triggers on `push` to non-main branches, `pull_request` to main, and a weekly `schedule` cron; configure `language: javascript-typescript` with `build-mode: none`
+- [x] T010 [P] [US3] Set CodeQL job to use `actions/checkout@v4`, `github/codeql-action/init@v3`, `github/codeql-action/analyze@v3` with `category: /language:javascript-typescript`; add `concurrency` group to cancel in-progress duplicate runs
 
 **Checkpoint**: CodeQL workflow file present, triggers defined — US3 complete
 
