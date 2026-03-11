@@ -78,13 +78,30 @@ jobs:
           echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > ironwallsky-release.jks
           echo "Keystore decoded: $(wc -c < ironwallsky-release.jks) bytes"
 
+      - name: Convert keystore to JKS for AGP/BouncyCastle compatibility
+        # AGP 8.x bundles its own BouncyCastle which can't parse PKCS12
+        # keystores created by JDK 17+ (extended ASN.1 tags >30). The JDK
+        # keytool reads the PKCS12 using the JDK's own provider (not BC),
+        # then writes JKS which every BC version supports.
+        run: |
+          keytool -importkeystore \
+            -srckeystore ironwallsky-release.jks \
+            -destkeystore ironwallsky-release-compat.jks \
+            -srcstoretype PKCS12 \
+            -deststoretype JKS \
+            -srcstorepass "${{ secrets.RELEASE_STORE_PASSWORD }}" \
+            -deststorepass "${{ secrets.RELEASE_STORE_PASSWORD }}" \
+            -noprompt
+          echo "Converted to JKS: $(wc -c < ironwallsky-release-compat.jks) bytes"
+
       - name: Write keystore.properties
         run: |
           cat > android/keystore.properties <<EOF
-          storeFile=../../ironwallsky-release.jks
+          storeFile=../../ironwallsky-release-compat.jks
           storePassword=${{ secrets.RELEASE_STORE_PASSWORD }}
           keyAlias=${{ secrets.RELEASE_KEY_ALIAS }}
           keyPassword=${{ secrets.RELEASE_KEY_PASSWORD }}
+          storeType=JKS
           EOF
 
       # ── 6. Web bundle (production — real ads, no test mode) ──────────────

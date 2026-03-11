@@ -30,6 +30,9 @@ android {
                 storePassword keystoreProperties['storePassword']
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
+                // storeType defaults to PKCS12 for local builds, overridden to
+                // JKS in CI (AGP's BouncyCastle can't parse JDK 17+ PKCS12)
+                storeType keystoreProperties.getProperty('storeType', 'PKCS12')
             }
         }
     }
