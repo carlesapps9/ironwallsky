@@ -4,7 +4,7 @@
 // T072: combo multiplier display (combo-updated event).
 
 import Phaser from 'phaser';
-import type { GameEventBus } from '@core/events.js';
+import type { GameEventBus, GameEventType, GameEventMap } from '@core/events.js';
 import type { GameConfig } from '@core/config.js';
 
 export class HUD {
@@ -16,6 +16,9 @@ export class HUD {
 
   // T072: combo display
   private comboText!: Phaser.GameObjects.Text;
+
+  // Stored handler refs for cleanup
+  private boundHandlers: Array<{ event: string; handler: (...args: never[]) => void }> = [];
 
   constructor(scene: Phaser.Scene, events: GameEventBus, config: GameConfig) {
     this.scene = scene;
@@ -67,16 +70,24 @@ export class HUD {
   }
 
   private subscribeToEvents(): void {
-    this.events.on('score-changed', (payload) => {
+    const on = <K extends GameEventType>(
+      event: K,
+      handler: (payload: GameEventMap[K]) => void,
+    ) => {
+      this.events.on(event, handler);
+      this.boundHandlers.push({ event, handler: handler as (...args: never[]) => void });
+    };
+
+    on('score-changed', (payload) => {
       this.scoreText.setText(`Score: ${payload.score}`);
     });
 
-    this.events.on('life-lost', (payload) => {
+    on('life-lost', (payload) => {
       this.updateLives(payload.remaining);
     });
 
     // T072: show/hide combo multiplier; animate on change
-    this.events.on('combo-updated', (payload) => {
+    on('combo-updated', (payload) => {
       if (payload.multiplier <= 1.0) {
         this.comboText.setVisible(false);
         return;
@@ -114,6 +125,12 @@ export class HUD {
   }
 
   destroy(): void {
+    // Unsubscribe engine event handlers
+    for (const { event, handler } of this.boundHandlers) {
+      this.events.off(event as GameEventType, handler as never);
+    }
+    this.boundHandlers = [];
+
     this.scoreText.destroy();
     this.comboText.destroy();
     for (const icon of this.heartIcons) {
