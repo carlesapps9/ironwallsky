@@ -86,6 +86,10 @@ export class PlayScene extends Phaser.Scene {
     // Touch/drag input
     this.setupInput();
 
+    // Register cleanup for scene shutdown (Phaser does NOT auto-call shutdown();
+    // it only emits the SHUTDOWN event on this.events)
+    this.events.once('shutdown', this.cleanup, this);
+
     // Start the run only on first launch (not on restart from GameOverScene,
     // which already called engine.startNewRun() before transitioning here)
     if (this.engine.getState().run.phase !== 'starting') {
@@ -474,6 +478,14 @@ export class PlayScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    // Called by Phaser only if explicitly registered — see cleanup() below.
+    this.cleanup();
+  }
+
+  private cleanup(): void {
+    // Guard against double-cleanup
+    if (this.boundHandlers.length === 0) return;
+
     // Unsubscribe all engine event handlers to prevent listener leak on restart
     for (const { event, handler } of this.boundHandlers) {
       this.engine.events.off(event as GameEventType, handler as never);
