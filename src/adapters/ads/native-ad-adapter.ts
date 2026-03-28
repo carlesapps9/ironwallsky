@@ -4,6 +4,11 @@
 
 import type { AdService, AdResult } from './ad-adapter.js';
 
+/** Returns true if `id` is a valid AdMob ad-unit string (not undefined/empty). */
+function isValidAdId(id: string): boolean {
+  return typeof id === 'string' && id.length > 0 && id !== 'undefined';
+}
+
 export function createNativeAdAdapter(): AdService {
   let initialized = false;
   let admobModule: typeof import('@capacitor-community/admob') | null = null;
@@ -18,15 +23,15 @@ export function createNativeAdAdapter(): AdService {
       const platform = Capacitor.getPlatform(); // 'android' | 'ios'
 
       if (platform === 'ios') {
-        interstitialId = import.meta.env.VITE_ADMOB_INTERSTITIAL_IOS as string;
-        rewardedId = import.meta.env.VITE_ADMOB_REWARDED_IOS as string;
-        reviveId = import.meta.env.VITE_ADMOB_REVIVE_IOS as string;
-        doubleId = import.meta.env.VITE_ADMOB_DOUBLE_IOS as string;
+        interstitialId = import.meta.env.VITE_ADMOB_INTERSTITIAL_IOS as string ?? '';
+        rewardedId = import.meta.env.VITE_ADMOB_REWARDED_IOS as string ?? '';
+        reviveId = import.meta.env.VITE_ADMOB_REVIVE_IOS as string ?? '';
+        doubleId = import.meta.env.VITE_ADMOB_DOUBLE_IOS as string ?? '';
       } else {
-        interstitialId = import.meta.env.VITE_ADMOB_INTERSTITIAL_ANDROID as string;
-        rewardedId = import.meta.env.VITE_ADMOB_REWARDED_ANDROID as string;
-        reviveId = import.meta.env.VITE_ADMOB_REVIVE_ANDROID as string;
-        doubleId = import.meta.env.VITE_ADMOB_DOUBLE_ANDROID as string;
+        interstitialId = import.meta.env.VITE_ADMOB_INTERSTITIAL_ANDROID as string ?? '';
+        rewardedId = import.meta.env.VITE_ADMOB_REWARDED_ANDROID as string ?? '';
+        reviveId = import.meta.env.VITE_ADMOB_REVIVE_ANDROID as string ?? '';
+        doubleId = import.meta.env.VITE_ADMOB_DOUBLE_ANDROID as string ?? '';
       }
 
       admobModule = await import('@capacitor-community/admob');
@@ -45,7 +50,7 @@ export function createNativeAdAdapter(): AdService {
       }
 
       initialized = true;
-      console.log('[Ads] Native AdMob initialized');
+      console.log(`[Ads] Native AdMob initialized (testing=${String(isTesting)}, platform=${platform})`);
     } catch (err) {
       console.warn('[Ads] Native AdMob init failed:', err);
       initialized = false;
@@ -54,6 +59,7 @@ export function createNativeAdAdapter(): AdService {
 
   async function showInterstitial(): Promise<AdResult> {
     if (!initialized || !admobModule) return 'not-ready';
+    if (!isValidAdId(interstitialId)) return 'not-ready';
 
     try {
       const { AdMob } = admobModule;
@@ -69,60 +75,48 @@ export function createNativeAdAdapter(): AdService {
     }
   }
 
+  /** Show a rewarded ad for a given ad unit, with dismiss detection. */
+  async function showRewardedAd(adId: string, label: string): Promise<AdResult> {
+    if (!initialized || !admobModule) return 'not-ready';
+    if (!isValidAdId(adId)) {
+      console.warn(`[Ads] ${label}: no valid ad unit ID configured`);
+      return 'not-ready';
+    }
+
+    try {
+      const { AdMob } = admobModule;
+
+      await AdMob.prepareRewardVideoAd({ adId });
+
+      // showRewardVideoAd resolves with AdMobRewardItem when the user earns
+      // the reward. If the user dismisses early the promise rejects.
+      const reward = await AdMob.showRewardVideoAd();
+      if (reward) {
+        return 'shown';
+      }
+      return 'dismissed';
+    } catch (err) {
+      // Dismissal before reward also throws on some plugin versions
+      const msg = String(err);
+      if (msg.includes('dismiss') || msg.includes('close') || msg.includes('cancel')) {
+        console.log(`[Ads] ${label}: user dismissed`);
+        return 'dismissed';
+      }
+      console.warn(`[Ads] ${label} failed:`, err);
+      return 'failed';
+    }
+  }
+
   async function showRewarded(): Promise<AdResult> {
-    if (!initialized || !admobModule) return 'not-ready';
-
-    try {
-      const { AdMob } = admobModule;
-
-      await AdMob.prepareRewardVideoAd({
-        adId: rewardedId,
-      });
-
-      await AdMob.showRewardVideoAd();
-      return 'shown';
-    } catch (err) {
-      console.warn('[Ads] Rewarded ad failed:', err);
-      return 'failed';
-    }
+    return showRewardedAd(rewardedId, 'Rewarded (continue)');
   }
 
-  // T079: Revive Shield — dedicated placement, own ad unit ID
   async function showRevive(): Promise<AdResult> {
-    if (!initialized || !admobModule) return 'not-ready';
-
-    try {
-      const { AdMob } = admobModule;
-
-      await AdMob.prepareRewardVideoAd({
-        adId: reviveId || rewardedId, // fallback to continue ad unit if not configured
-      });
-
-      await AdMob.showRewardVideoAd();
-      return 'shown';
-    } catch (err) {
-      console.warn('[Ads] Revive Shield ad failed:', err);
-      return 'failed';
-    }
+    return showRewardedAd(reviveId || rewardedId, 'Revive Shield');
   }
 
-  // T079: Score Doubler — dedicated placement, own ad unit ID
   async function showDouble(): Promise<AdResult> {
-    if (!initialized || !admobModule) return 'not-ready';
-
-    try {
-      const { AdMob } = admobModule;
-
-      await AdMob.prepareRewardVideoAd({
-        adId: doubleId || rewardedId, // fallback to continue ad unit if not configured
-      });
-
-      await AdMob.showRewardVideoAd();
-      return 'shown';
-    } catch (err) {
-      console.warn('[Ads] Score Doubler ad failed:', err);
-      return 'failed';
-    }
+    return showRewardedAd(doubleId || rewardedId, 'Score Doubler');
   }
 
   function isAvailable(): boolean {
