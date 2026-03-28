@@ -102,8 +102,9 @@ export class PlayScene extends Phaser.Scene {
       this.engine.startNewRun();
     }
 
-    // After continue/revive, show countdown so the player has time to get ready
+    // After continue/revive, restore visual state and show countdown
     if (phase === 'playing') {
+      this.hydrateSpritesFromState();
       this.showResumeCountdown();
     }
   }
@@ -116,6 +117,36 @@ export class PlayScene extends Phaser.Scene {
 
     // Sync sprites to core state
     this.syncSprites();
+  }
+
+  /** Restore sprites for active enemies/projectiles and sync HUD after continue/revive. */
+  private hydrateSpritesFromState(): void {
+    const state = this.engine.getState();
+
+    // Create sprites for enemies that were active before game-over
+    for (const enemy of state.enemies) {
+      if (enemy.active && !this.enemySprites.has(enemy.id)) {
+        const sprite = this.enemyPool.spawn(enemy.position.x, enemy.position.y);
+        if (sprite) {
+          sprite.setDepth(5);
+          this.enemySprites.set(enemy.id, sprite);
+        }
+      }
+    }
+
+    // Create sprites for active projectiles
+    for (const proj of state.projectiles) {
+      if (proj.active && !this.projectileSprites.has(proj.id)) {
+        const sprite = this.projectilePool.spawn(proj.position.x, proj.position.y);
+        if (sprite) {
+          sprite.setDepth(5);
+          this.projectileSprites.set(proj.id, sprite);
+        }
+      }
+    }
+
+    // Sync HUD score and lives to current engine state
+    this.hud.syncFromState(state.run.score, state.run.remainingLives);
   }
 
   /** 3-2-1-GO countdown after ad-powered continue/revive. */
