@@ -53,13 +53,17 @@ export function createWebAdAdapter(): AdService {
   async function initialize(): Promise<void> {
     try {
       const loaded = await loadGPT();
-      initialized = loaded;
       if (loaded) {
         console.log('[Ads] Web GPT initialized');
+      } else {
+        console.log('[Ads] GPT unavailable — using simulated ad overlays');
       }
+      // Mark available even if GPT failed: show* methods use simulated overlays
+      // that work without GPT so the ad flow remains functional.
+      initialized = true;
     } catch {
-      console.warn('[Ads] Web ad init failed');
-      initialized = false;
+      console.warn('[Ads] Web ad init failed — using simulated ad overlays');
+      initialized = true;
     }
   }
 

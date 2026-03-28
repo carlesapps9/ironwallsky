@@ -170,10 +170,13 @@ export class GameOverScene extends Phaser.Scene {
             return;
           }
           // Ad failed/skipped — do NOT grant continue (US4.6)
-          // Option remains available; player can retry the ad or tap Retry
+          this.showButtonFeedback(btn, 'Ad not available');
         } catch {
-          // Fall through — never block retry per FR-017
+          // Never block retry per FR-017
+          this.showButtonFeedback(btn, 'Ad failed');
         }
+      } else {
+        this.showButtonFeedback(btn, 'Ads not available');
       }
     });
   }
@@ -204,10 +207,13 @@ export class GameOverScene extends Phaser.Scene {
             this.scene.start('PlayScene', { engine: this.engine });
             return;
           }
-          // Failed/skipped — reviveAvailable unchanged; player may retry
+          this.showButtonFeedback(btn, 'Ad not available');
         } catch {
           // Never block retry per FR-017
+          this.showButtonFeedback(btn, 'Ad failed');
         }
+      } else {
+        this.showButtonFeedback(btn, 'Ads not available');
       }
     });
   }
@@ -239,9 +245,13 @@ export class GameOverScene extends Phaser.Scene {
             this.scene.restart();
             return;
           }
+          this.showButtonFeedback(btn, 'Ad not available');
         } catch {
           // Never block retry per FR-017
+          this.showButtonFeedback(btn, 'Ad failed');
         }
+      } else {
+        this.showButtonFeedback(btn, 'Ads not available');
       }
     });
   }
@@ -306,6 +316,25 @@ export class GameOverScene extends Phaser.Scene {
       delay: 1200,
       duration: 600,
       onComplete: () => toast.setVisible(false),
+    });
+  }
+
+  /** Brief flash feedback on an ad button when the ad is unavailable. */
+  private showButtonFeedback(btn: Phaser.GameObjects.Text, message: string): void {
+    const feedback = this.add
+      .text(btn.x, btn.y + 28, message, {
+        fontSize: '12px',
+        color: '#ff6644',
+        fontFamily: 'monospace',
+      })
+      .setOrigin(0.5)
+      .setDepth(10);
+
+    this.tweens.add({
+      targets: feedback,
+      alpha: 0,
+      duration: 1500,
+      onComplete: () => feedback.destroy(),
     });
   }
 
