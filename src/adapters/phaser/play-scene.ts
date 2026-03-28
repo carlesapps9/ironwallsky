@@ -31,6 +31,9 @@ export class PlayScene extends Phaser.Scene {
   // Stored handler refs for cleanup (prevent listener leak across restarts)
   private boundHandlers: Array<{ event: string; handler: (...args: never[]) => void }> = [];
 
+  // True while the 3-2-1 countdown is active after ad-powered resume
+  private resumeCountdown = false;
+
   constructor() {
     super({ key: 'PlayScene' });
   }
@@ -98,14 +101,65 @@ export class PlayScene extends Phaser.Scene {
     if (phase !== 'starting' && phase !== 'playing') {
       this.engine.startNewRun();
     }
+
+    // After continue/revive, show countdown so the player has time to get ready
+    if (phase === 'playing') {
+      this.showResumeCountdown();
+    }
   }
 
   update(_time: number, delta: number): void {
-    // Drive the core engine
-    this.engine.step(delta);
+    // Freeze engine during resume countdown but keep rendering
+    if (!this.resumeCountdown) {
+      this.engine.step(delta);
+    }
 
     // Sync sprites to core state
     this.syncSprites();
+  }
+
+  /** 3-2-1-GO countdown after ad-powered continue/revive. */
+  private showResumeCountdown(): void {
+    this.resumeCountdown = true;
+    const config = this.engine.getState().config;
+    const cx = config.worldWidth / 2;
+    const cy = config.worldHeight / 2;
+
+    const label = this.add
+      .text(cx, cy, '3', {
+        fontSize: '64px',
+        color: '#00ffff',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+        stroke: '#0066aa',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(100);
+
+    const steps = ['3', '2', '1', 'GO!'];
+    let i = 0;
+
+    const advance = (): void => {
+      if (i >= steps.length) {
+        label.destroy();
+        this.resumeCountdown = false;
+        return;
+      }
+      label.setText(steps[i]);
+      label.setScale(1.5);
+      this.tweens.add({
+        targets: label,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 300,
+        ease: 'Back.easeOut',
+      });
+      i++;
+      this.time.delayedCall(800, advance);
+    };
+
+    advance();
   }
 
   private setupInput(): void {
