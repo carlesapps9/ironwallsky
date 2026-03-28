@@ -16,6 +16,9 @@ import { createAudioAdapter } from '@adapters/audio/audio-adapter.js';
 // Create the core engine
 const engine = createEngine(DEFAULT_CONFIG, Date.now());
 
+// Ad service — declared early so GameOverScene init override can inject it
+let adService: AdService | null = null;
+
 // T078: Remote config fetch — merges server-provided config over defaults at boot.
 // Disabled when remoteConfigUrl is '' (default). Never blocks gameplay start.
 async function initRemoteConfig(): Promise<void> {
@@ -126,6 +129,9 @@ GameOverScene.prototype.init = function (data: unknown) {
   if (!d.engine) {
     (d as Record<string, unknown>).engine = engine;
   }
+  if (!d.adService && adService) {
+    (d as Record<string, unknown>).adService = adService;
+  }
   originalGameOverInit.call(this, d as { engine: GameEngine; adService?: AdService });
 };
 
@@ -181,7 +187,6 @@ game.events.on('audio-toggle-mute', () => {
 });
 
 // Wire ads (US4)
-let adService: AdService | null = null;
 
 async function initAds(): Promise<void> {
   try {
