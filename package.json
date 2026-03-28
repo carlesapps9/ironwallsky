@@ -40,7 +40,7 @@
     "vitest": "^4.1.2"
   },
   "overrides": {
-    "serialize-javascript": "^7.0.4",
+    "serialize-javascript": "^7.0.5",
     "replace": {
       "minimatch": "^5.1.0"
     }
