@@ -31,6 +31,9 @@ export class PlayScene extends Phaser.Scene {
   // Stored handler refs for cleanup (prevent listener leak across restarts)
   private boundHandlers: Array<{ event: string; handler: (...args: never[]) => void }> = [];
 
+  // True while the 3-2-1 countdown is active after ad-powered resume
+  private resumeCountdown = false;
+
   constructor() {
     super({ key: 'PlayScene' });
   }
@@ -98,14 +101,96 @@ export class PlayScene extends Phaser.Scene {
     if (phase !== 'starting' && phase !== 'playing') {
       this.engine.startNewRun();
     }
+
+    // After continue/revive, restore visual state and show countdown
+    if (phase === 'playing') {
+      this.hydrateSpritesFromState();
+      this.showResumeCountdown();
+    }
   }
 
   update(_time: number, delta: number): void {
-    // Drive the core engine
-    this.engine.step(delta);
+    // Freeze engine during resume countdown but keep rendering
+    if (!this.resumeCountdown) {
+      this.engine.step(delta);
+    }
 
     // Sync sprites to core state
     this.syncSprites();
+  }
+
+  /** Restore sprites for active enemies/projectiles and sync HUD after continue/revive. */
+  private hydrateSpritesFromState(): void {
+    const state = this.engine.getState();
+
+    // Create sprites for enemies that were active before game-over
+    for (const enemy of state.enemies) {
+      if (enemy.active && !this.enemySprites.has(enemy.id)) {
+        const sprite = this.enemyPool.spawn(enemy.position.x, enemy.position.y);
+        if (sprite) {
+          sprite.setDepth(5);
+          this.enemySprites.set(enemy.id, sprite);
+        }
+      }
+    }
+
+    // Create sprites for active projectiles
+    for (const proj of state.projectiles) {
+      if (proj.active && !this.projectileSprites.has(proj.id)) {
+        const sprite = this.projectilePool.spawn(proj.position.x, proj.position.y);
+        if (sprite) {
+          sprite.setDepth(5);
+          this.projectileSprites.set(proj.id, sprite);
+        }
+      }
+    }
+
+    // Sync HUD score and lives to current engine state
+    this.hud.syncFromState(state.run.score, state.run.remainingLives);
+  }
+
+  /** 3-2-1-GO countdown after ad-powered continue/revive. */
+  private showResumeCountdown(): void {
+    this.resumeCountdown = true;
+    const config = this.engine.getState().config;
+    const cx = config.worldWidth / 2;
+    const cy = config.worldHeight / 2;
+
+    const label = this.add
+      .text(cx, cy, '3', {
+        fontSize: '64px',
+        color: '#00ffff',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+        stroke: '#0066aa',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(100);
+
+    const steps = ['3', '2', '1', 'GO!'];
+    let i = 0;
+
+    const advance = (): void => {
+      if (i >= steps.length) {
+        label.destroy();
+        this.resumeCountdown = false;
+        return;
+      }
+      label.setText(steps[i]);
+      label.setScale(1.5);
+      this.tweens.add({
+        targets: label,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 300,
+        ease: 'Back.easeOut',
+      });
+      i++;
+      this.time.delayedCall(800, advance);
+    };
+
+    advance();
   }
 
   private setupInput(): void {

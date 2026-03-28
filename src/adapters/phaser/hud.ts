@@ -124,6 +124,12 @@ export class HUD {
     this.comboText.setText('');
   }
 
+  /** Sync HUD to current engine state (used after continue/revive resume). */
+  syncFromState(score: number, lives: number): void {
+    this.scoreText.setText(`Score: ${score}`);
+    this.updateLives(lives);
+  }
+
   destroy(): void {
     // Unsubscribe engine event handlers
     for (const { event, handler } of this.boundHandlers) {
