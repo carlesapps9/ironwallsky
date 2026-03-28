@@ -4,7 +4,7 @@
 
 import Phaser from 'phaser';
 import type { GameEngine } from '@core/engine.js';
-import type { GameEventBus } from '@core/events.js';
+import type { GameEventBus, GameEventType, GameEventMap } from '@core/events.js';
 import { createSpritePool } from './sprite-pool.js';
 import type { SpritePool } from './sprite-pool.js';
 import { HUD } from './hud.js';
@@ -27,6 +27,9 @@ export class PlayScene extends Phaser.Scene {
   // US5: Mute toggle button
   private muteButton!: Phaser.GameObjects.Text;
   private audioMuted = true; // default muted per FR-014
+
+  // Stored handler refs for cleanup (prevent listener leak across restarts)
+  private boundHandlers: Array<{ event: string; handler: (...args: never[]) => void }> = [];
 
   constructor() {
     super({ key: 'PlayScene' });
@@ -83,8 +86,11 @@ export class PlayScene extends Phaser.Scene {
     // Touch/drag input
     this.setupInput();
 
-    // Start the run
-    this.engine.startNewRun();
+    // Start the run only on first launch (not on restart from GameOverScene,
+    // which already called engine.startNewRun() before transitioning here)
+    if (this.engine.getState().run.phase !== 'starting') {
+      this.engine.startNewRun();
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -182,7 +188,16 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private subscribeToEvents(events: GameEventBus): void {
-    events.on('projectile-fired', (payload) => {
+    // Helper to register + track handlers for cleanup in shutdown()
+    const on = <K extends GameEventType>(
+      event: K,
+      handler: (payload: GameEventMap[K]) => void,
+    ) => {
+      events.on(event, handler);
+      this.boundHandlers.push({ event, handler: handler as (...args: never[]) => void });
+    };
+
+    on('projectile-fired', (payload) => {
       const sprite = this.projectilePool.spawn(payload.x, payload.y);
       if (sprite) {
         sprite.setDepth(5);
@@ -193,7 +208,7 @@ export class PlayScene extends Phaser.Scene {
       this.addMuzzleFlash(payload.x, payload.y);
     });
 
-    events.on('projectile-deactivated', (payload) => {
+    on('projectile-deactivated', (payload) => {
       const sprite = this.projectileSprites.get(payload.id);
       if (sprite) {
         this.projectilePool.despawn(sprite);
@@ -201,7 +216,7 @@ export class PlayScene extends Phaser.Scene {
       }
     });
 
-    events.on('enemy-spawned', (payload) => {
+    on('enemy-spawned', (payload) => {
       const sprite = this.enemyPool.spawn(payload.x, payload.y);
       if (sprite) {
         sprite.setDepth(5);
@@ -209,7 +224,7 @@ export class PlayScene extends Phaser.Scene {
       }
     });
 
-    events.on('enemy-destroyed', (payload) => {
+    on('enemy-destroyed', (payload) => {
       const sprite = this.enemySprites.get(payload.id);
       if (sprite) {
         // US5: Enhanced destruction animation + score pop-up
@@ -220,7 +235,7 @@ export class PlayScene extends Phaser.Scene {
       }
     });
 
-    events.on('enemy-breached', (payload) => {
+    on('enemy-breached', (payload) => {
       const sprite = this.enemySprites.get(payload.id);
       if (sprite) {
         this.enemyPool.despawn(sprite);
@@ -231,18 +246,18 @@ export class PlayScene extends Phaser.Scene {
       this.addBreachEffect();
     });
 
-    events.on('player-moved', (payload) => {
+    on('player-moved', (payload) => {
       this.playerSprite.x = payload.x;
     });
 
-    events.on('run-phase-changed', (payload) => {
+    on('run-phase-changed', (payload) => {
       if (payload.to === 'game-over' || payload.to === 'continue-offer') {
         this.scene.start('GameOverScene', { engine: this.engine });
       }
     });
 
     // US3: Milestone celebration VFX
-    events.on('milestone-reached', (payload) => {
+    on('milestone-reached', (payload) => {
       this.addMilestoneCelebration(payload.milestone);
     });
   }
@@ -459,6 +474,13 @@ export class PlayScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    // Unsubscribe all engine event handlers to prevent listener leak on restart
+    for (const { event, handler } of this.boundHandlers) {
+      this.engine.events.off(event as GameEventType, handler as never);
+    }
+    this.boundHandlers = [];
+
+    this.hud?.destroy();
     this.projectileSprites.clear();
     this.enemySprites.clear();
     if (this.pauseOverlay) {
