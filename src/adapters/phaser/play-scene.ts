@@ -90,9 +90,12 @@ export class PlayScene extends Phaser.Scene {
     // it only emits the SHUTDOWN event on this.events)
     this.events.once('shutdown', this.cleanup, this);
 
-    // Start the run only on first launch (not on restart from GameOverScene,
-    // which already called engine.startNewRun() before transitioning here)
-    if (this.engine.getState().run.phase !== 'starting') {
+    // Start a new run only if nobody else has already set the engine phase.
+    // - 'starting': first boot or retry (GameOverScene called startNewRun())
+    // - 'playing': continue/revive just granted (grantContinue/grantRevive set 'playing')
+    // In both cases, do NOT reset — the engine state is already correct.
+    const phase = this.engine.getState().run.phase;
+    if (phase !== 'starting' && phase !== 'playing') {
       this.engine.startNewRun();
     }
   }
