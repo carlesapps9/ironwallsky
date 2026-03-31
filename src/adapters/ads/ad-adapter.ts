@@ -21,6 +21,12 @@ export interface AdService {
   /** Show the Score Doubler rewarded ad (dedicated placement). Returns result. */
   showDouble(): Promise<AdResult>;
 
+  /** Show an adaptive banner ad (e.g. on game-over screen). */
+  showBanner(): Promise<void>;
+
+  /** Hide the currently displayed banner ad. */
+  hideBanner(): Promise<void>;
+
   /** Whether the ad service is available on this platform. */
   isAvailable(): boolean;
 }
@@ -33,6 +39,8 @@ export function createNoOpAdService(): AdService {
     async showRewarded(): Promise<AdResult> { return 'skipped'; },
     async showRevive(): Promise<AdResult> { return 'skipped'; },
     async showDouble(): Promise<AdResult> { return 'skipped'; },
+    async showBanner(): Promise<void> {},
+    async hideBanner(): Promise<void> {},
     isAvailable(): boolean { return false; },
   };
 }

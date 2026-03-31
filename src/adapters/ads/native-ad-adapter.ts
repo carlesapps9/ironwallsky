@@ -123,5 +123,13 @@ export function createNativeAdAdapter(): AdService {
     return initialized;
   }
 
-  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, isAvailable };
+  async function showBanner(): Promise<void> {
+    // T015 will implement full AdMob banner logic
+  }
+
+  async function hideBanner(): Promise<void> {
+    // T015 will implement full AdMob banner logic
+  }
+
+  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, showBanner, hideBanner, isAvailable };
 }

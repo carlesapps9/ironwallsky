@@ -214,5 +214,13 @@ export function createWebAdAdapter(): AdService {
     return initialized;
   }
 
-  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, isAvailable };
+  async function showBanner(): Promise<void> {
+    // T016 will implement full web banner simulation
+  }
+
+  async function hideBanner(): Promise<void> {
+    // T016 will implement full web banner simulation
+  }
+
+  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, showBanner, hideBanner, isAvailable };
 }
