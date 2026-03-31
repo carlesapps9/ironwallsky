@@ -115,6 +115,29 @@ export class GameOverScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(10);
 
+    // T022: Session stats — best combo multiplier and highest wave
+    const statsY = cy + 12;
+    if (run.bestComboMultiplier > 1.0) {
+      this.add
+        .text(cx - 60, statsY, `Best Combo: x${run.bestComboMultiplier.toFixed(1)}`, {
+          fontSize: '13px',
+          color: '#ffdd00',
+          fontFamily: 'monospace',
+        })
+        .setOrigin(0.5)
+        .setDepth(10);
+    }
+    if (run.currentDifficultyLevel > 0) {
+      this.add
+        .text(cx + 60, statsY, `Wave: ${run.currentDifficultyLevel}`, {
+          fontSize: '13px',
+          color: '#aabbcc',
+          fontFamily: 'monospace',
+        })
+        .setOrigin(0.5)
+        .setDepth(10);
+    }
+
     // T012: Streak badge — shown when dailyStreak > 1
     if (state.highScore.dailyStreak > 1) {
       this.add
