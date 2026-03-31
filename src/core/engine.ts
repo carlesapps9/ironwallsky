@@ -319,6 +319,15 @@ export function createEngine(
 
       // Auto-start on first step
       if (state.run.phase === 'starting') {
+        // T005: Apply streak bonus at run start
+        const streak = state.highScore.dailyStreak;
+        if (streak > 0) {
+          const bonus = Math.min(streak, 10) * 100;
+          state.run.score += bonus;
+          state.player.score = state.run.score;
+          events.emit('score-changed', { score: state.run.score, delta: bonus });
+          events.emit('streak-bonus-applied', { bonus, streak });
+        }
         transitionPhase('playing');
       }
 
