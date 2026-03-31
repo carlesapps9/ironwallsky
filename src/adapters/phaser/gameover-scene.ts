@@ -29,6 +29,11 @@ export class GameOverScene extends Phaser.Scene {
     const run = state.run;
     const config = state.config;
 
+    // T017: Show banner ad on game-over screen
+    if (this.adService) {
+      this.adService.showBanner().catch(() => {});
+    }
+
     const cx = config.worldWidth / 2;
     const cy = config.worldHeight / 2;
 
