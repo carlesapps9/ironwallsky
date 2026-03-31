@@ -82,6 +82,10 @@ export interface Run {
   comboMultiplier: number;
   /** ms elapsed since last kill; incremented by dt each step via dt accumulator — NEVER setTimeout. */
   comboLastHitElapsedMs: number;
+  /** Highest combo multiplier achieved during this run. */
+  bestComboMultiplier: number;
+  /** Whether streak recovery ad was offered this session (module-level, not per-run). */
+  streakRecoveryOffered: boolean;
 }
 
 /** Persisted high score data (v2 — backward-compatible with v1). */
