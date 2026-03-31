@@ -1,12 +1,13 @@
-// tests/unit/scoring.test.ts — T057 + T084: Scoring system unit tests
+// tests/unit/scoring.test.ts — T057 + T084 + T009: Scoring system unit tests
 // Point award, milestone detection, event emission.
 // T084: combo multiplier increment, decay after comboWindow, cap, combo-updated event.
+// T009: streak bonus calculation tests.
 
 import { describe, it, expect, vi } from 'vitest';
 import type { GameState } from '@core/entities.js';
-import { DEFAULT_CONFIG } from '@core/config.js';
+import { DEFAULT_CONFIG, FIXED_DT } from '@core/config.js';
 import { updateScoring, updateScoringStep } from '@core/systems/scoring.js';
-import { createGameState } from '@core/engine.js';
+import { createGameState, createEngine } from '@core/engine.js';
 import { createEventBus } from '@core/events.js';
 
 function makeState(): GameState {
@@ -220,5 +221,70 @@ describe('Combo Scoring', () => {
 
     // Still active (1500 < 2000)
     expect(state.run.comboCount).toBe(1);
+  });
+});
+
+// T009: Streak bonus calculation tests
+describe('Streak Bonus', () => {
+  function makeEngineWithStreak(dailyStreak: number) {
+    const engine = createEngine({ ...DEFAULT_CONFIG }, 42);
+    // Set up streak before starting a run
+    (engine.getState() as GameState).highScore.dailyStreak = dailyStreak;
+    engine.startNewRun();
+    return engine;
+  }
+
+  it('should not award bonus when streak is 0', () => {
+    const engine = makeEngineWithStreak(0);
+    const handler = vi.fn();
+    engine.events.on('streak-bonus-applied', handler);
+
+    engine.step(FIXED_DT);
+
+    expect(engine.getState().run.score).toBe(0);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('should award +200 bonus for streak=2', () => {
+    const engine = makeEngineWithStreak(2);
+    const handler = vi.fn();
+    engine.events.on('streak-bonus-applied', handler);
+
+    engine.step(FIXED_DT);
+
+    expect(engine.getState().run.score).toBe(200);
+    expect(handler).toHaveBeenCalledWith({ bonus: 200, streak: 2 });
+  });
+
+  it('should award +1000 bonus for streak=10', () => {
+    const engine = makeEngineWithStreak(10);
+    const handler = vi.fn();
+    engine.events.on('streak-bonus-applied', handler);
+
+    engine.step(FIXED_DT);
+
+    expect(engine.getState().run.score).toBe(1000);
+    expect(handler).toHaveBeenCalledWith({ bonus: 1000, streak: 10 });
+  });
+
+  it('should cap bonus at +1000 for streak=15', () => {
+    const engine = makeEngineWithStreak(15);
+    const handler = vi.fn();
+    engine.events.on('streak-bonus-applied', handler);
+
+    engine.step(FIXED_DT);
+
+    expect(engine.getState().run.score).toBe(1000);
+    expect(handler).toHaveBeenCalledWith({ bonus: 1000, streak: 15 });
+  });
+
+  it('should emit score-changed with streak bonus delta', () => {
+    const engine = makeEngineWithStreak(5);
+    const handler = vi.fn();
+    engine.events.on('score-changed', handler);
+
+    engine.step(FIXED_DT);
+
+    expect(handler).toHaveBeenCalledWith({ score: 500, delta: 500 });
   });
 });
