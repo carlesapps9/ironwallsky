@@ -195,7 +195,7 @@ export class GameOverScene extends Phaser.Scene {
           const result = await this.adService.showRewarded();
           if (result === 'shown') {
             this.engine.grantContinue();
-            this.scene.start('PlayScene', { engine: this.engine });
+            this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
             return;
           }
           // Ad failed/skipped — do NOT grant continue (US4.6)
@@ -233,7 +233,7 @@ export class GameOverScene extends Phaser.Scene {
           const result = await this.adService.showRevive();
           if (result === 'shown') {
             this.engine.grantRevive();
-            this.scene.start('PlayScene', { engine: this.engine });
+            this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
             return;
           }
           this.showButtonFeedback(btn, 'Ad not available');
@@ -434,7 +434,7 @@ export class GameOverScene extends Phaser.Scene {
 
     btn.on('pointerdown', () => {
       this.engine.startNewRun();
-      this.scene.start('PlayScene', { engine: this.engine });
+      this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
     });
   }
 
