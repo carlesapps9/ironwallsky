@@ -1,6 +1,7 @@
-// tests/unit/engine.test.ts — T058 + T087: Game engine unit tests
+// tests/unit/engine.test.ts — T058 + T087 + T010: Game engine unit tests
 // FSM transitions, fixed-timestep, auto-fire, breach, game-over, spiral-of-death cap.
 // T087: grantRevive, grantScoreDouble, retry-from-continue-offer paths.
+// T010: grantBonusLife, bestComboMultiplier tracking.
 
 import { describe, it, expect, vi } from 'vitest';
 import { createEngine } from '@core/engine.js';
@@ -324,6 +325,101 @@ describe('Game Engine', () => {
       expect(engine.getState().run.reviveAvailable).toBe(true);
       expect(engine.getState().run.doublersUsed).toBe(false);
       expect(engine.getState().player.remainingLives).toBe(DEFAULT_CONFIG.maxLives);
+    });
+  });
+
+  // T010: grantBonusLife tests
+  describe('grantBonusLife', () => {
+    it('should set remainingLives to maxLives+1 when phase is starting', () => {
+      const engine = makeEngine();
+      engine.startNewRun();
+      expect(engine.getState().run.phase).toBe('starting');
+
+      engine.grantBonusLife();
+
+      expect(engine.getState().run.remainingLives).toBe(DEFAULT_CONFIG.maxLives + 1);
+      expect(engine.getState().player.remainingLives).toBe(DEFAULT_CONFIG.maxLives + 1);
+    });
+
+    it('should emit life-lost event with updated remaining', () => {
+      const engine = makeEngine();
+      engine.startNewRun();
+      const handler = vi.fn();
+      engine.events.on('life-lost', handler);
+
+      engine.grantBonusLife();
+
+      expect(handler).toHaveBeenCalledWith({ remaining: DEFAULT_CONFIG.maxLives + 1 });
+    });
+
+    it('should no-op when phase is playing', () => {
+      const engine = makeEngine();
+      engine.startNewRun();
+      engine.step(FIXED_DT); // → playing
+
+      engine.grantBonusLife();
+
+      expect(engine.getState().run.remainingLives).toBe(DEFAULT_CONFIG.maxLives);
+    });
+
+    it('should no-op when phase is game-over', () => {
+      const engine = makeEngine();
+      engine.startNewRun();
+      engine.step(FIXED_DT);
+      (engine.getState() as any).run.phase = 'game-over';
+
+      engine.grantBonusLife();
+
+      expect(engine.getState().run.remainingLives).toBe(DEFAULT_CONFIG.maxLives);
+    });
+  });
+
+  // T010: bestComboMultiplier tracking tests
+  describe('bestComboMultiplier tracking', () => {
+    it('should update bestComboMultiplier when combo multiplier increases', () => {
+      const engine = makeEngine();
+      engine.startNewRun();
+      engine.step(FIXED_DT); // → playing
+      const state = engine.getState() as any;
+
+      // Simulate combo: set combo fields as collision.ts would
+      state.run.comboCount = 3;
+      state.run.comboMultiplier = 1.3;
+      state.run.comboLastHitElapsedMs = 0;
+
+      // Step to trigger scoring system which tracks bestComboMultiplier
+      engine.step(FIXED_DT);
+
+      expect(state.run.bestComboMultiplier).toBeCloseTo(1.3);
+    });
+
+    it('should retain best when combo resets to lower value', () => {
+      const engine = makeEngine();
+      engine.startNewRun();
+      engine.step(FIXED_DT);
+      const state = engine.getState() as any;
+
+      // First combo peak
+      state.run.comboCount = 5;
+      state.run.comboMultiplier = 2.0;
+      state.run.comboLastHitElapsedMs = 0;
+      engine.step(FIXED_DT);
+      expect(state.run.bestComboMultiplier).toBeCloseTo(2.0);
+
+      // Combo expires
+      state.run.comboLastHitElapsedMs = state.config.comboWindow + 1;
+      engine.step(FIXED_DT);
+
+      // bestComboMultiplier should not decrease
+      expect(state.run.bestComboMultiplier).toBeCloseTo(2.0);
+      expect(state.run.comboMultiplier).toBe(1.0);
+    });
+
+    it('should default to 1.0 at start of run', () => {
+      const engine = makeEngine();
+      engine.startNewRun();
+
+      expect(engine.getState().run.bestComboMultiplier).toBe(1.0);
     });
   });
 });
