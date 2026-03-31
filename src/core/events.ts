@@ -95,6 +95,15 @@ export interface DifficultyIncreasedEvent {
   level: number;
 }
 
+export interface StreakBonusAppliedEvent {
+  bonus: number;
+  streak: number;
+}
+
+export interface StreakRecoveredEvent {
+  streak: number;
+}
+
 // ─── Event Type Map ───
 
 /** All event names as a string literal union. */
@@ -114,7 +123,9 @@ export type GameEventType =
   | 'combo-updated'
   | 'revive-granted'
   | 'score-doubled'
-  | 'share-card-tapped';
+  | 'share-card-tapped'
+  | 'streak-bonus-applied'
+  | 'streak-recovered';
 
 /** Maps each event type to its payload shape. */
 export interface GameEventMap {
@@ -134,6 +145,8 @@ export interface GameEventMap {
   'revive-granted': ReviveGrantedEvent;
   'score-doubled': ScoreDoubledEvent;
   'share-card-tapped': ShareCardTappedEvent;
+  'streak-bonus-applied': StreakBonusAppliedEvent;
+  'streak-recovered': StreakRecoveredEvent;
 }
 
 // ─── Event Bus Interface ───
