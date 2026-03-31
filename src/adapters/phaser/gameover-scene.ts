@@ -186,11 +186,19 @@ export class GameOverScene extends Phaser.Scene {
       this.createStreakRecoveryButton(cx, cy + 210, state.highScore.dailyStreak);
     }
 
+    // T024: Extra life ad button — shown only after first run (runIndex > 0)
+    const showExtraLife = run.runIndex > 0;
+    let retryYOffset = 220;
+    if (this.isStreakAtRisk(state.highScore.lastPlayedDate, state.highScore.dailyStreak)) {
+      retryYOffset = 260;
+    }
+    if (showExtraLife) {
+      this.createExtraLifeButton(cx, cy + retryYOffset);
+      retryYOffset += 50;
+    }
+
     // Retry button (48x48 minimum touch target per FR-024)
-    const retryY = this.isStreakAtRisk(state.highScore.lastPlayedDate, state.highScore.dailyStreak)
-      ? cy + 260
-      : cy + 220;
-    this.createRetryButton(cx, retryY);
+    this.createRetryButton(cx, cy + retryYOffset);
   }
 
   private createContinueButton(x: number, y: number): void {
@@ -423,6 +431,43 @@ export class GameOverScene extends Phaser.Scene {
             this.engine.recoverStreak();
             streakRecoveryUsedThisSession = true;
             btn.setVisible(false);
+            return;
+          }
+          this.showButtonFeedback(btn, 'Ad not available');
+        } catch {
+          this.showButtonFeedback(btn, 'Ad failed');
+        }
+      } else {
+        this.showButtonFeedback(btn, 'Ads not available');
+      }
+    });
+  }
+
+  // T024: Extra life ad button — watch ad for extra life on next run
+  private createExtraLifeButton(x: number, y: number): void {
+    const btn = this.add
+      .text(x, y, '▶ Watch ad for extra life?', {
+        fontSize: '15px',
+        color: '#000000',
+        fontFamily: 'monospace',
+        backgroundColor: '#44ff88',
+        padding: { left: 14, right: 14, top: 10, bottom: 10 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setInteractive({ useHandCursor: true });
+
+    btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
+
+    btn.on('pointerdown', async () => {
+      if (this.adService && this.adService.isAvailable()) {
+        try {
+          const result = await this.adService.showRewarded();
+          if (result === 'shown') {
+            // T025: Start new run then grant bonus life before first step
+            this.engine.startNewRun();
+            this.engine.grantBonusLife();
+            this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
             return;
           }
           this.showButtonFeedback(btn, 'Ad not available');
