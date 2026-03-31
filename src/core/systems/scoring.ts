@@ -57,6 +57,9 @@ export function updateScoringStep(
 
   // Advance combo elapsed timer
   if (run.comboCount > 0) {
+    // T008: Track best combo multiplier achieved this run
+    run.bestComboMultiplier = Math.max(run.bestComboMultiplier, run.comboMultiplier);
+
     run.comboLastHitElapsedMs += dt;
     if (run.comboLastHitElapsedMs > config.comboWindow) {
       // Window expired — reset combo to baseline
