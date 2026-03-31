@@ -320,6 +320,21 @@ export class PlayScene extends Phaser.Scene {
       const sprite = this.enemyPool.spawn(payload.x, payload.y);
       if (sprite) {
         sprite.setDepth(5);
+        // T019: Apply enemy type color tints
+        switch (payload.enemyType) {
+          case 'drifter':
+            sprite.setTint(0x4488ff);
+            break;
+          case 'armored':
+            sprite.setTint(0xffaa44);
+            break;
+          case 'speeder':
+            sprite.setTint(0xff4444);
+            break;
+          default:
+            sprite.clearTint();
+            break;
+        }
         this.enemySprites.set(payload.id, sprite);
       }
     });
