@@ -53,6 +53,9 @@ export interface EngineCommands {
 
   /** Score Doubler rewarded ad completed — double displayed session score. bestScore unaffected. */
   grantScoreDouble(): void;
+
+  /** Grant bonus life before run starts (from rewarded ad on game-over). */
+  grantBonusLife(): void;
 }
 
 /** Full engine API exposed to adapters. */
@@ -423,6 +426,14 @@ export function createEngine(
       state.run.doublersUsed = true;
       console.log(`[Engine] grantScoreDouble: ${originalScore} → ${newScore}`);
       events.emit('score-doubled', { newScore, originalScore });
+    },
+
+    // T006: Grant bonus life — only valid before run starts (phase === 'starting')
+    grantBonusLife(): void {
+      if (state.run.phase !== 'starting') return;
+      state.run.remainingLives = state.config.maxLives + 1;
+      state.player.remainingLives = state.run.remainingLives;
+      events.emit('life-lost', { remaining: state.run.remainingLives });
     },
 
     setCollisionMasks(masks: CollisionMask[]): void {
