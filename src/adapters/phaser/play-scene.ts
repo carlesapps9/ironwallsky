@@ -5,12 +5,14 @@
 import Phaser from 'phaser';
 import type { GameEngine } from '@core/engine.js';
 import type { GameEventBus, GameEventType, GameEventMap } from '@core/events.js';
+import type { AdService } from '@adapters/ads/ad-adapter.js';
 import { createSpritePool } from './sprite-pool.js';
 import type { SpritePool } from './sprite-pool.js';
 import { HUD } from './hud.js';
 
 export class PlayScene extends Phaser.Scene {
   private engine!: GameEngine;
+  private adService: AdService | null = null;
   private projectilePool!: SpritePool;
   private enemyPool!: SpritePool;
   private playerSprite!: Phaser.GameObjects.Sprite;
@@ -38,13 +40,19 @@ export class PlayScene extends Phaser.Scene {
     super({ key: 'PlayScene' });
   }
 
-  init(data: { engine: GameEngine }): void {
+  init(data: { engine: GameEngine; adService?: AdService }): void {
     this.engine = data.engine;
+    this.adService = data.adService ?? null;
   }
 
   create(): void {
     const events = this.engine.events;
     const config = this.engine.getState().config;
+
+    // T018: Hide banner ad when gameplay starts
+    if (this.adService) {
+      this.adService.hideBanner().catch(() => {});
+    }
 
     // Background — deep space
     this.cameras.main.setBackgroundColor('#050510');
