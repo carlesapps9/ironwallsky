@@ -1,115 +1,89 @@
-# Research: Security Vulnerability Remediation
+# Research: Playability, Engagement & Monetization Improvements
 
-**Date**: 2026-03-11 | **Spec**: [spec.md](spec.md)
+**Date**: 2026-03-28 | **Spec**: [specs/main/spec.md](spec.md)
 
-## 1. serialize-javascript RCE (GHSA-5c6j-r48x-rmvq)
+## R1: AdMob Banner Ad Integration in Capacitor
 
-**Decision**: Upgrade `vite-plugin-pwa` from `^0.21.0` to `^1.2.0` (already installed as 1.2.0 but package.json range is wrong).
+**Decision**: Use `@capacitor-community/admob` `BannerAd` API (already installed at v6.2.0).
 
-**Rationale**: `vite-plugin-pwa@1.2.0` uses `workbox-build@7.4.0` which depends on `@rollup/plugin-terser@0.4.4` → `serialize-javascript@6.0.2` (still vulnerable ≤7.0.2). The `vite-plugin-pwa` team has not yet bumped workbox to a version with `serialize-javascript@7.0.4`. However:
-- The vulnerability (RCE via `RegExp.flags` / `Date.prototype.toISOString()`) requires an attacker to control the serialized input. In this project, `serialize-javascript` is only used at **build time** by Rollup's terser plugin to serialize worker code; it never runs at runtime in the browser or processes user input.
-- **Risk assessment: LOW** — build-time-only, developer-controlled input.
-- **Mitigation**: Add an `overrides` entry in `package.json` to force `serialize-javascript@^7.0.4`, and monitor vite-plugin-pwa for an upstream fix.
+**Rationale**: The project already depends on `@capacitor-community/admob@6.2.0` for interstitial and rewarded ads. Banner ads are supported via `AdMob.showBanner()` and `AdMob.hideBanner()` with `BannerAdOptions` (position, adId, adSize). No additional dependency needed.
 
 **Alternatives considered**:
-- Downgrade to `vite-plugin-pwa@0.19.8`: breaks Vite 6 compatibility.
-- Remove vite-plugin-pwa: loses PWA support (violates Constitution §V).
-- Wait for upstream fix: acceptable since build-time-only risk, but override is proactive.
+- Google Ad Manager GPT banner for web: Already have web adapter with simulated overlays. Web banner can be a simple DOM div positioned at bottom.
+- Third-party banner SDK: Rejected — would add a dependency (Constitution Principle III).
 
-## 2. node-tar Path Traversal (6 CVEs)
+**Implementation notes**:
+- `BannerAdSize.ADAPTIVE_BANNER` for responsive sizing
+- `BannerAdPosition.BOTTOM_CENTER` to avoid gameplay area overlap
+- Call `showBanner()` in GameOverScene `create()`, `hideBanner()` in PlayScene `create()`
+- On web: create a positioned DOM div with simulated content or skip
 
-**Decision**: Upgrade `@capacitor/cli` from `^6.2.1` to `^8.2.0` and `@capacitor/core` + related packages to v8.
+## R2: Daily Streak Bonus — Engine Integration Point
 
-**Rationale**: `@capacitor/cli@6.2.1` depends on `tar@6.2.1` which has 6 high-severity path traversal/symlink poisoning CVEs. Capacitor CLI v8.2.0 uses `tar@^7.5.3` which resolves all fixed CVEs. Additional override for `tar@^7.5.11` covers the remaining GHSA-qffp-2rhf-9h96 and GHSA-9ppj-qmqm-q256 advisories.
+**Decision**: Apply streak bonus in the `starting → playing` phase transition inside `engine.step()`.
 
-**Risk assessment: MEDIUM** — tar is used by Capacitor CLI during `cap sync/add` operations (dev/CI-time), not at runtime. But path traversal in tar extraction could be exploited if malicious plugin packages are processed.
-
-**Required companion upgrades for Capacitor 8**:
-- `@capacitor/core` → `^8.0.0`
-- `@capacitor/android` → `^8.0.0`
-- `@capacitor/splash-screen` → `^8.0.0`
-- `@capacitor-community/admob` → `^8.0.0` (major version, check API compat)
-- `@capacitor/assets` (devDep) → check for v4+ compatible with CLI 8
-- Android: update `variables.gradle` for Capacitor 8 SDK requirements
+**Rationale**: The engine already transitions from `'starting'` to `'playing'` on the first `step()` call. This is the natural injection point for a one-time run bonus. The streak value is available from `state.highScore.dailyStreak`. The bonus is added to `state.run.score` and `state.player.score`, and a `score-changed` event is emitted so the HUD updates.
 
 **Alternatives considered**:
-- npm overrides for tar only: may break Capacitor CLI internal operations if API changed between tar 6→7.
-- Stay on Capacitor 6: leaves 6 unpatched CVEs in development tooling. Acceptable short-term but not recommended.
-- Capacitor 7: stepping stone available but v8 is current stable.
+- Apply in `startNewRun()`: Rejected — `startNewRun()` resets everything to zero; bonus must come after reset.
+- Apply in adapter (PlayScene): Rejected — violates Constitution Principle I (gameplay logic in core).
 
-## 3. minimatch ReDoS (3 CVEs in ≤3.1.3)
+**Cap**: `Math.min(dailyStreak, 10) * 100` = max +1000 bonus.
 
-**Decision**: Apply npm override for `minimatch@^5.0.0` scoped to `replace` package path. Monitor upstream `@trapezedev/project` for update.
+## R3: Tracking Best Combo and Highest Wave in Run
 
-**Rationale**: `minimatch@3.0.5` is pulled by `replace@1.2.2` → `@trapezedev/project@7.1.3` → `@capacitor/assets@3.0.5`. The `replace` package is unmaintained (last publish 2022). The ReDoS vulnerabilities could cause CPU exhaustion if an attacker controls glob patterns, but in this project the patterns are hardcoded at build time.
+**Decision**: Add `bestComboMultiplier: number` to the `Run` interface in `entities.ts`. Use existing `currentDifficultyLevel` for wave display.
 
-**Risk assessment: LOW** — build-time-only, developer-controlled patterns.
+**Rationale**: `bestComboMultiplier` is updated in `collision.ts` whenever `comboMultiplier` increases beyond the current best. `currentDifficultyLevel` already tracks the wave — no new field needed for that.
 
 **Alternatives considered**:
-- Fork `@trapezedev/project`: too much maintenance overhead for a dev tool.
-- Override minimatch globally: could break eslint and other tools using minimatch v3 correctly.
-- Scoped override in `package.json`: clean, contained, and doesn't affect other consumers.
+- Track in adapter only: Rejected — violates Constitution Principle I.
+- Add separate `highestWave` field: Unnecessary — `currentDifficultyLevel` serves the same purpose.
 
-## 4. Dependabot Configuration
+## R4: Tap-to-Move vs Drag Coexistence
 
-**Decision**: Add `.github/dependabot.yml` with npm and GitHub Actions ecosystems.
+**Decision**: Detect tap vs drag in `pointerup` handler based on duration (<150ms) and distance (<10px).
 
-**Rationale**: The project currently has no automated dependency update mechanism. Dependabot will:
-- Create PRs for security updates automatically.
-- Group minor/patch updates to reduce PR noise.
-- Run weekly scans for both npm packages and GitHub Actions versions.
+**Rationale**: Phaser's input system provides `pointer.getDuration()` and distance between `downX/downY` and `upX/upY`. If both are small, treat as tap and lerp player to `pointer.x` using `this.tweens.add()` over 100ms. Existing drag handler in `pointermove` is unaffected.
 
-**Configuration**:
-- npm updates: weekly, grouped by dependency type (production vs dev).
-- GitHub Actions: weekly, all version updates.
-- Ignore major version bumps for Capacitor (require manual planning).
+**Alternatives considered**:
+- Use Phaser's gesture plugin: Rejected — adds a dependency.
+- Always lerp on pointerdown: Rejected — conflicts with drag behavior.
 
-## 5. CodeQL Code Scanning
+## R5: Speeder Spawn Warning Visual
 
-**Decision**: Add `.github/workflows/codeql.yml` for JavaScript/TypeScript analysis.
+**Decision**: Handle entirely in the adapter (PlayScene) when `enemy-spawned` event fires with `enemyType === 'speeder'`.
 
-**Rationale**: The project has no static analysis for security vulnerabilities in its own code. CodeQL catches:
-- XSS via DOM manipulation
-- Prototype pollution
-- Insecure randomness usage
-- Path traversal in file operations
-- Regex injection
+**Rationale**: No core engine change needed. The adapter creates a brief red triangle/arrow indicator at the top of the screen at the enemy's x-position, fading over 300ms. The speeder starts at y=-32 (above screen), so the warning is visible before the enemy enters the viewport.
 
-The codebase scan found no current vulnerabilities (no innerHTML, eval, document.write usage), but continuous scanning prevents regressions.
+**Alternatives considered**:
+- New `enemy-spawn-warning` event from spawner: Over-engineering for a visual-only feature.
+- Delay the actual spawn: Changes game mechanics (violates Constitution Principle I determinism).
 
-**Configuration**: Run on PRs to main and weekly scheduled scan.
+## R6: Streak Recovery Logic
 
-## 6. Content Security Policy
+**Decision**: Add `recoverStreak()` method to engine that sets `lastPlayedDate` to yesterday's date string.
 
-**Decision**: Add CSP meta tag to `index.html`.
+**Rationale**: The streak calculation happens in `engine.ts endRun()` using the injectable clock. For recovery: if the player watches the ad, `recoverStreak()` sets `lastPlayedDate` to yesterday so the existing streak logic in `endRun()` will increment rather than reset. This avoids changing the core streak algorithm.
 
-**Rationale**: The app currently has no CSP. While the game is a static PWA with no server-side rendering, a CSP provides defense-in-depth against XSS if a dependency is compromised.
+**Alternatives considered**:
+- Modify endRun() streak logic directly: Rejected — more complex, harder to test.
+- Track recovery flag: Unnecessary — setting lastPlayedDate achieves the same effect cleanly.
 
-**Proposed policy**:
-```
-default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://pagead2.googlesyndication.com https://*.google.com; frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; worker-src 'self'; font-src 'self'
-```
+## R7: Pre-Run Bonus Shield (Extra Life)
 
-Note: `'unsafe-inline'` for styles is required because Phaser injects inline styles. Script CSP is strict (`'self'` only) since Vite bundles all JS.
+**Decision**: Add `grantBonusLife()` method to engine that sets `remainingLives = maxLives + 1` before the first step.
 
-## 7. npm audit CI Gate
+**Rationale**: Called after `startNewRun()` but before `step()`. The engine is in `'starting'` phase. Bumps both `run.remainingLives` and `player.remainingLives` by 1. Emits `life-lost` event with new count to update HUD heart icons.
 
-**Decision**: Add `npm audit --audit-level=high` to CI workflow.
+**Alternatives considered**:
+- Modify `createRun()` to accept initial lives: Complicates the pure factory.
+- Pass flag to `startNewRun()`: Changes existing API contract for all callers.
 
-**Rationale**: Currently the CI workflow checks lint, types, tests, and bundle size, but does not check for known vulnerabilities. Adding an audit step ensures new high/critical vulnerabilities fail the build.
+## R8: Banner Ad Position and Layout Safety
 
-**Implementation**: Add as a step in the existing lint-typecheck job (fastest gate). Use `--audit-level=high` to avoid blocking on moderate/low findings that may not have fixes available.
+**Decision**: AdMob native banners render as a native overlay outside the WebView. No Phaser layout changes needed.
 
-**Alternative**: Use a dedicated security scanning action (e.g., `snyk`, `socket-security`). Rejected because npm audit is zero-dependency and sufficient for this project's scale.
+**Rationale**: `@capacitor-community/admob` banner renders as a native Android/iOS view overlaid on top of the WebView. The game-over scene content is centered vertically with ~100px below the retry button. Adaptive banner is typically 50-60px. No overlap expected on standard devices.
 
-## 8. Exposed AdMob App ID in AndroidManifest.xml
-
-**Decision**: Accept as non-issue — AdMob App IDs are intentionally public.
-
-**Rationale**: The AdMob App ID `ca-app-pub-1616644616833222~9015068869` in `AndroidManifest.xml` is not a secret. It's required to be in the manifest for the Google Mobile Ads SDK to initialize. Ad Unit IDs are loaded from environment variables at build time. The `.env` file containing actual configuration values is properly gitignored and confirmed not tracked by git.
-
-## 9. Keystore Credentials
-
-**Decision**: Accept current handling — properly secured.
-
-**Rationale**: `android/keystore.properties` is gitignored, `*.jks` and `*.keystore` are gitignored, and an `.example` file with placeholder values is provided. The CI workflow uses GitHub Secrets for keystore credentials. No action needed.
+**Risk mitigation**: On very small screens, the banner could overlap the retry button. The game-over scene already uses relative positioning from center — the retry button at cy+220 on a 640px canvas leaves 100px margin, sufficient for adaptive banners.

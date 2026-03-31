@@ -1,81 +1,148 @@
-# Data Model: Security Vulnerability Remediation
+# Data Model: Playability, Engagement & Monetization Improvements
 
-**Date**: 2026-03-11 | **Spec**: [spec.md](spec.md)
+**Date**: 2026-03-28 | **Spec**: [specs/main/spec.md](spec.md)
 
-## Entities
+## Entity Changes
 
-This feature is a dependency maintenance / DevSecOps feature. It does not introduce new runtime entities or modify the game's data model. The "entities" below describe the configuration artifacts that will be created or modified.
+### Run (modified — `src/core/entities.ts`)
 
-### DependabotConfig
+Existing fields unchanged. New fields added:
 
-**File**: `.github/dependabot.yml`
+```typescript
+export interface Run {
+  // ... existing fields ...
 
-| Field | Type | Description |
-|-------|------|-------------|
-| version | int | Schema version (2) |
-| updates[] | array | List of ecosystem update configurations |
-| updates[].package-ecosystem | string | `npm` or `github-actions` |
-| updates[].directory | string | Path to package manifest (`/`) |
-| updates[].schedule.interval | string | `weekly` |
-| updates[].groups | object | Grouping rules for PRs |
+  /** Highest combo multiplier achieved this run; default: 1.0. */
+  bestComboMultiplier: number;
 
-### CodeQLWorkflow
+  /** Whether streak recovery ad was shown this run. NOTE: The "once per session" guard
+   *  from FR-MON-02 must be tracked via a module-level flag in the adapter (gameover-scene.ts),
+   *  since Run resets per run. This field is retained for per-run deduplication. */
+  streakRecoveryOffered: boolean;
+}
+```
 
-**File**: `.github/workflows/codeql.yml`
+**Defaults in `createRun()`**:
+- `bestComboMultiplier: 1.0`
+- `streakRecoveryOffered: false`
 
-| Field | Type | Description |
-|-------|------|-------------|
-| triggers | push, pull_request, schedule | When scanning runs |
-| language | javascript-typescript | Analysis target |
-| build-mode | none | No build needed for JS/TS |
+### HighScoreRecord (unchanged)
 
-### CSPPolicy
+Already has all needed fields:
+- `dailyStreak: number` — consecutive play days
+- `lastPlayedDate: string` — ISO YYYY-MM-DD
 
-**File**: `index.html` (meta tag)
+No changes needed.
 
-| Directive | Value | Rationale |
-|-----------|-------|-----------|
-| default-src | 'self' | Restrict all resources to same origin by default |
-| script-src | 'self' | No inline scripts, no eval |
-| style-src | 'self' 'unsafe-inline' | Phaser injects inline styles |
-| img-src | 'self' data: blob: | Phaser uses data URIs and blob URLs for textures |
-| connect-src | 'self' + ad domains | Allow ad network and analytics requests |
-| frame-src | ad domains | Allow ad iframes |
-| worker-src | 'self' | Service worker |
-| font-src | 'self' | Local fonts only |
+### GameConfig (unchanged for core)
 
-### NpmOverrides
+Existing fields sufficient:
+- `maxLives: 3` — used by `grantBonusLife()` as baseline
+- `milestoneInterval: 500` — unchanged
+- `comboMultiplierCap: 3.0` — unchanged
 
-**File**: `package.json` (overrides section)
+## New Engine Methods
 
-| Override | Version | Scope |
-|----------|---------|-------|
-| serialize-javascript | ^7.0.4 | Global — forces patched version for workbox-build chain |
-| tar | ^7.5.11 | Global — forces latest patch for all consumers |
+### `grantBonusLife(): void`
+
+```typescript
+grantBonusLife(): void {
+  if (state.run.phase !== 'starting') return;
+  state.run.remainingLives = state.config.maxLives + 1;
+  state.player.remainingLives = state.run.remainingLives;
+  events.emit('life-lost', { remaining: state.run.remainingLives });
+}
+```
+
+**Precondition**: Phase is `'starting'` (called after `startNewRun()`, before first `step()`).
+
+### `recoverStreak(): void`
+
+```typescript
+recoverStreak(): void {
+  const today = clock.getDateString();
+  const todayMs = new Date(today).getTime();
+  const yesterdayMs = todayMs - 86_400_000;
+  const yesterday = new Date(yesterdayMs).toISOString().slice(0, 10);
+  state.highScore.lastPlayedDate = yesterday;
+  events.emit('streak-recovered', { streak: state.highScore.dailyStreak });
+}
+```
+
+**Precondition**: Called when player completes the streak recovery rewarded ad.
+
+### Streak Bonus (in `step()` transition)
+
+```typescript
+// Inside step(), when transitioning 'starting' → 'playing':
+if (state.run.phase === 'starting') {
+  transitionPhase('playing');
+  // Streak bonus
+  const streak = state.highScore.dailyStreak;
+  if (streak > 1) {
+    const bonus = Math.min(streak, 10) * 100;
+    state.run.score += bonus;
+    state.player.score = state.run.score;
+    events.emit('score-changed', { score: state.run.score, delta: bonus });
+    events.emit('streak-bonus-applied', { bonus, streak });
+  }
+}
+```
+
+## New Events
+
+### `streak-bonus-applied`
+
+```typescript
+export interface StreakBonusAppliedEvent {
+  bonus: number;   // Points added (e.g., 500)
+  streak: number;  // Current streak count
+}
+```
+
+Emitted once at run start when `dailyStreak > 1`.
+
+### `streak-recovered`
+
+```typescript
+export interface StreakRecoveredEvent {
+  streak: number;  // The preserved streak count
+}
+```
+
+Emitted when `recoverStreak()` is called successfully.
+
+## AdService Interface Changes
+
+```typescript
+export interface AdService {
+  // ... existing methods ...
+
+  /** Show a bottom banner ad (game-over screen). */
+  showBanner(): Promise<void>;
+
+  /** Hide the banner ad (when returning to gameplay). */
+  hideBanner(): Promise<void>;
+}
+```
 
 ## State Transitions
 
-N/A — no runtime state changes.
+No new phases. Existing FSM unchanged:
+
+```
+starting → playing → (continue-offer | game-over)
+                ↑              |
+                └──────────────┘ (via grantContinue/grantRevive)
+```
+
+`grantBonusLife()` is called during `starting` phase only.
+`recoverStreak()` can be called from any phase (game-over screen context).
 
 ## Validation Rules
 
-- `npm audit --audit-level=high` must exit 0 after all remediations.
-- All CI gates must continue to pass after dependency upgrades.
-- Capacitor Android build must succeed if Capacitor 8 upgrade is performed.
-
-## Relationships
-
-```
-package.json
-  ├── overrides (serialize-javascript, tar)
-  ├── devDependencies (@capacitor/cli, @capacitor/assets, vite-plugin-pwa)
-  └── dependencies (@capacitor/core, @capacitor/android, @capacitor-community/admob)
-
-.github/
-  ├── dependabot.yml (NEW)
-  └── workflows/
-      ├── ci.yml (MODIFIED — add npm audit step)
-      └── codeql.yml (NEW)
-
-index.html (MODIFIED — add CSP meta tag)
-```
+- Streak bonus: `streak > 1` AND `streak ≤ 10` cap on multiplier (not streak itself)
+- Bonus life: Only in `'starting'` phase, only increases by 1 above maxLives
+- Streak recovery: Only when `dailyStreak > 3` AND `lastPlayedDate` is not today or yesterday
+- Banner ad: Must be hidden before transitioning to PlayScene
+- `bestComboMultiplier`: Updated to `max(bestComboMultiplier, comboMultiplier)` in collision handling
