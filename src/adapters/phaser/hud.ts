@@ -105,6 +105,34 @@ export class HUD {
         ease: 'Sine.easeOut',
       });
     });
+
+    // T011: streak bonus notification — fade after 1.5s
+    on('streak-bonus-applied', (payload) => {
+      const bonusText = this.scene.add.text(
+        this.scene.cameras.main.width / 2,
+        60,
+        `+${payload.bonus} streak bonus`,
+        {
+          fontSize: '20px',
+          color: '#ffdd00',
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+          stroke: '#aa6600',
+          strokeThickness: 3,
+        },
+      );
+      bonusText.setOrigin(0.5);
+      bonusText.setDepth(100);
+      bonusText.setScrollFactor(0);
+      this.scene.tweens.add({
+        targets: bonusText,
+        alpha: 0,
+        y: 40,
+        duration: 1500,
+        ease: 'Sine.easeIn',
+        onComplete: () => bonusText.destroy(),
+      });
+    });
   }
 
   private updateLives(remaining: number): void {
