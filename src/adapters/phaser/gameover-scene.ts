@@ -107,6 +107,19 @@ export class GameOverScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(10);
 
+    // T012: Streak badge — shown when dailyStreak > 1
+    if (state.highScore.dailyStreak > 1) {
+      this.add
+        .text(cx, cy + 18, `🔥 ${state.highScore.dailyStreak}-day streak`, {
+          fontSize: '15px',
+          color: '#ffaa44',
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+        })
+        .setOrigin(0.5)
+        .setDepth(10);
+    }
+
     // Rewarded ad continue button (if applicable)
     if (
       run.phase === 'continue-offer' &&
