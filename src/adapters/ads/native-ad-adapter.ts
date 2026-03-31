@@ -16,6 +16,7 @@ export function createNativeAdAdapter(): AdService {
   let rewardedId = '';
   let reviveId = '';
   let doubleId = '';
+  let bannerId = '';
 
   async function initialize(): Promise<void> {
     try {
@@ -27,11 +28,13 @@ export function createNativeAdAdapter(): AdService {
         rewardedId = import.meta.env.VITE_ADMOB_REWARDED_IOS as string ?? '';
         reviveId = import.meta.env.VITE_ADMOB_REVIVE_IOS as string ?? '';
         doubleId = import.meta.env.VITE_ADMOB_DOUBLE_IOS as string ?? '';
+        bannerId = import.meta.env.VITE_ADMOB_BANNER_IOS as string ?? '';
       } else {
         interstitialId = import.meta.env.VITE_ADMOB_INTERSTITIAL_ANDROID as string ?? '';
         rewardedId = import.meta.env.VITE_ADMOB_REWARDED_ANDROID as string ?? '';
         reviveId = import.meta.env.VITE_ADMOB_REVIVE_ANDROID as string ?? '';
         doubleId = import.meta.env.VITE_ADMOB_DOUBLE_ANDROID as string ?? '';
+        bannerId = import.meta.env.VITE_ADMOB_BANNER_ANDROID as string ?? '';
       }
 
       admobModule = await import('@capacitor-community/admob');
@@ -124,11 +127,28 @@ export function createNativeAdAdapter(): AdService {
   }
 
   async function showBanner(): Promise<void> {
-    // T015 will implement full AdMob banner logic
+    if (!initialized || !admobModule) return;
+    if (!isValidAdId(bannerId)) return;
+    try {
+      const { AdMob, BannerAdSize, BannerAdPosition } = admobModule;
+      await AdMob.showBanner({
+        adId: bannerId,
+        adSize: BannerAdSize.ADAPTIVE_BANNER,
+        position: BannerAdPosition.BOTTOM_CENTER,
+      });
+    } catch (err) {
+      console.warn('[Ads] Banner show failed:', err);
+    }
   }
 
   async function hideBanner(): Promise<void> {
-    // T015 will implement full AdMob banner logic
+    if (!initialized || !admobModule) return;
+    try {
+      const { AdMob } = admobModule;
+      await AdMob.hideBanner();
+    } catch (err) {
+      console.warn('[Ads] Banner hide failed:', err);
+    }
   }
 
   return { initialize, showInterstitial, showRewarded, showRevive, showDouble, showBanner, hideBanner, isAvailable };
