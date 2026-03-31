@@ -388,6 +388,31 @@ export class PlayScene extends Phaser.Scene {
     on('milestone-reached', (payload) => {
       this.addMilestoneCelebration(payload.milestone);
     });
+
+    // T021: Wave progress flash on difficulty increase
+    on('difficulty-increased', (payload) => {
+      const cx = this.cameras.main.centerX;
+      const cy = this.cameras.main.centerY;
+      const waveText = this.add.text(cx, cy, `WAVE ${payload.level}`, {
+        fontSize: '32px',
+        color: '#ffffff',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+        stroke: '#0066ff',
+        strokeThickness: 3,
+      });
+      waveText.setOrigin(0.5);
+      waveText.setDepth(100);
+      this.tweens.add({
+        targets: waveText,
+        alpha: 0,
+        scaleX: 1.5,
+        scaleY: 1.5,
+        duration: 1500,
+        ease: 'Sine.easeOut',
+        onComplete: () => waveText.destroy(),
+      });
+    });
   }
 
   /** US3: Screen-wide milestone celebration (visible when muted per FR-013/FR-025). */
