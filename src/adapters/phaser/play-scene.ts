@@ -337,6 +337,19 @@ export class PlayScene extends Phaser.Scene {
         }
         this.enemySprites.set(payload.id, sprite);
       }
+      // T020: Speeder spawn warning — red flash at spawn x-position
+      if (payload.enemyType === 'speeder') {
+        const flash = this.add.graphics();
+        flash.fillStyle(0xff4444, 0.6);
+        flash.fillRect(payload.x - 15, 0, 30, 10);
+        flash.setDepth(95);
+        this.tweens.add({
+          targets: flash,
+          alpha: 0,
+          duration: 300,
+          onComplete: () => flash.destroy(),
+        });
+      }
     });
 
     on('enemy-destroyed', (payload) => {
