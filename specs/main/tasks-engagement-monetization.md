@@ -19,7 +19,7 @@
 
 **Purpose**: Environment variable configuration for banner ad units (FR-MON-04).
 
-- [x] T001 Add `VITE_ADMOB_BANNER_ANDROID` and `VITE_ADMOB_BANNER_IOS` entries to .env.example with placeholder values per quickstart.md
+- [ ] T001 Add `VITE_ADMOB_BANNER_ANDROID` and `VITE_ADMOB_BANNER_IOS` entries to .env.example with placeholder values per quickstart.md
 
 **Checkpoint**: Environment configured — core implementation can begin.
 
@@ -60,7 +60,7 @@
 
 - [ ] T011 [US1] Show streak bonus HUD notification ("+{bonus} streak bonus") on `streak-bonus-applied` event, fade after 1.5s in src/adapters/phaser/hud.ts
 - [ ] T012 [US1] Display streak badge ("🔥 {N}-day streak") below score on game-over screen when `dailyStreak > 1` in src/adapters/phaser/gameover-scene.ts
-- [ ] T013 [US1] Implement streak recovery rewarded ad offer: show "Watch ad to save your {N}-day streak!" button when `dailyStreak > 3` and streak is at risk (lastPlayedDate not today/yesterday), guard with module-level session flag (not Run.streakRecoveryOffered — Run resets per run), call `recoverStreak()` on ad completion in src/adapters/phaser/gameover-scene.ts
+- [ ] T013 [US1] Implement streak recovery rewarded ad offer: show "Watch ad to save your {N}-day streak!" button when `dailyStreak > 3` and streak is at risk (lastPlayedDate not today/yesterday), guard with `streakRecoveryOffered` flag, call `recoverStreak()` on ad completion in src/adapters/phaser/gameover-scene.ts
 - [ ] T014 [US1] Add integration test for streak recovery flow (offer shown when streak at risk, hidden after use, recoverStreak preserves streak) in tests/integration/streak.test.ts
 
 **Checkpoint**: Streak engagement fully functional — players see streak, get bonus, can recover streak via ad.
@@ -96,8 +96,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T019 [US3] Apply enemy type tints in `enemy-spawned` handler: standard=no tint, drifter=0x4488ff, armored=0xffaa44, speeder=0xff4444 using `sprite.setTint()` at spawn time in src/adapters/phaser/play-scene.ts
-- [ ] T020 [US3] Add speeder spawn warning: on `enemy-spawned` with `enemyType === 'speeder'`, create red flash indicator at spawn x-position at top of screen, fade/destroy over 300ms in src/adapters/phaser/play-scene.ts
+- [ ] T019 [P] [US3] Apply enemy type tints in `enemy-spawned` handler: standard=no tint, drifter=0x4488ff, armored=0xffaa44, speeder=0xff4444 using `sprite.setTint()` at spawn time in src/adapters/phaser/play-scene.ts
+- [ ] T020 [P] [US3] Add speeder spawn warning: on `enemy-spawned` with `enemyType === 'speeder'`, create red flash indicator at spawn x-position at top of screen, fade/destroy over 300ms in src/adapters/phaser/play-scene.ts
 
 **Checkpoint**: Enemy types visually distinct — players can immediately recognize threat levels.
 
@@ -136,20 +136,20 @@
 
 ---
 
-## Phase 8: User Story 6 — Pre-Run Extra Life Ad (Priority: P3)
+## Phase 8: User Story 6 — Pre-Run Shield Ad (Priority: P3)
 
-**Goal**: Offer optional rewarded ad on game-over screen to start the next run with an extra life (4 lives instead of 3).
+**Goal**: Offer optional rewarded ad on game-over screen to start the next run with a bonus life (4 lives instead of 3).
 
-**Independent Test**: Complete a run (runIndex ≥ 1) → game-over shows "Watch ad for extra life?" button → complete ad → next run starts with 4 lives. Button not shown on first-ever run (runIndex === 0).
+**Independent Test**: Complete a run (runIndex ≥ 1) → game-over shows "Watch ad for bonus shield?" button → complete ad → next run starts with 4 lives. Button not shown on first-ever run (runIndex === 0).
 
 **Requirements**: FR-MON-03
 
 ### Implementation for User Story 6
 
-- [ ] T024 [US6] Add "Watch ad for extra life?" button on game-over screen, shown only when `runIndex > 0`, next to retry button (≥48×48px touch target) in src/adapters/phaser/gameover-scene.ts
-- [ ] T025 [US6] On extra life ad completion, call `engine.grantBonusLife()` after `startNewRun()` but before first `step()` to set remainingLives to maxLives+1 in src/adapters/phaser/gameover-scene.ts
+- [ ] T024 [US6] Add "Watch ad for bonus shield?" button on game-over screen, shown only when `runIndex > 0`, next to retry button (≥48×48px touch target) in src/adapters/phaser/gameover-scene.ts
+- [ ] T025 [US6] On shield ad completion, call `engine.grantBonusLife()` after `startNewRun()` but before first `step()` to set remainingLives to maxLives+1 in src/adapters/phaser/gameover-scene.ts
 
-**Checkpoint**: Optional extra life ad offering works — players can choose extra protection.
+**Checkpoint**: Optional shield ad offering works — players can choose extra protection.
 
 ---
 
@@ -157,9 +157,9 @@
 
 **Purpose**: Validate all NFRs and prepare for release.
 
-- [ ] T026 [P] Verify NFR-01: run full CI gate — `npx tsc --noEmit`, `npx vitest run`, `npm run lint`, `npm run build` all pass. Verify NFR-02: `npm ls --prod` shows no new runtime dependencies beyond Phaser 3 + Capacitor + AdMob
-- [ ] T027 [P] Verify NFR-04 and NFR-06: confirm all ad placements are at natural breaks (game-over only), banner does not overlap interactive elements or reduce touch targets below 48×48px; verify retry button at cy+220 has ≥50px clearance to adaptive banner (per R8)
-- [ ] T028 Run quickstart.md validation scenarios (streak bonus, enemy tints, wave labels, banner ad, streak recovery) and verify NFR-05 (all visual feedback works correctly when audio is muted)
+- [ ] T026 [P] Verify NFR-01: run full CI gate — `npx tsc --noEmit`, `npx vitest run`, `npm run lint`, `npm run build` all pass
+- [ ] T027 [P] Verify NFR-04 and NFR-06: confirm all ad placements are at natural breaks (game-over only), banner does not overlap interactive elements or reduce touch targets below 48×48px
+- [ ] T028 Run quickstart.md validation scenarios (streak bonus, enemy tints, wave labels, banner ad, streak recovery)
 - [ ] T029 Version bump in package.json; `npx cap sync android` to sync native project
 
 **Checkpoint**: All features validated, CI green, ready for release.
@@ -183,7 +183,7 @@
 - **US3 — Visual Clarity (P2)**: Depends on Phase 2 completion (no new entity/method needs). No dependencies on other stories.
 - **US4 — Session Feedback (P2)**: Depends on T002 (bestComboMultiplier), T008 (combo tracking). No dependencies on other stories.
 - **US5 — Tap-to-Move (P3)**: No Foundational dependencies beyond existing codebase. Independent.
-- **US6 — Extra Life Ad (P3)**: Depends on T006 (grantBonusLife). No dependencies on other stories.
+- **US6 — Shield Ad (P3)**: Depends on T006 (grantBonusLife). No dependencies on other stories.
 
 ### Within Each User Story
 
@@ -197,41 +197,58 @@
 - T003, T004, T008 can all run in parallel (different files, no shared dependencies)
 - T009, T010 can run in parallel (different test files)
 - T015, T016 can run in parallel (different adapter files)
-- T021 can run in parallel with T019 (different event handlers in play-scene.ts: `difficulty-increased` vs `enemy-spawned`)
+- T019, T020 can run in parallel (different handler sections in play-scene.ts)
+- Once Foundational completes: US1, US2, US3, US4, US5, US6 can all start in parallel
+
+---
+
+## Parallel Example: Foundational Phase
+
+```text
+# Parallel batch 1 (after T002 completes — entity fields needed by engine):
+Task T003: Add event types in src/core/events.ts
+Task T004: Extend AdService interface in src/adapters/ads/ad-adapter.ts
+Task T008: Update bestComboMultiplier tracking in src/core/systems/scoring.ts
+
+# Sequential in engine.ts (T005 → T006 → T007, same file):
+Task T005: Streak bonus in starting→playing transition
+Task T006: grantBonusLife() method
+Task T007: recoverStreak() method
+```
+
+## Parallel Example: User Stories After Foundational
+
+```text
+# All stories can start simultaneously:
+Developer/Agent A: US1 (T009–T014) — Streak Engagement
+Developer/Agent B: US2 (T015–T018) — Banner Ad
+Developer/Agent C: US3 (T019–T020) — Visual Clarity
+Developer/Agent D: US4 (T021–T022) — Session Feedback
+```
 
 ---
 
 ## Implementation Strategy
 
-### MVP First (User Story 1 Only)
+### MVP First (US1 + US2 Only)
 
-1. Complete Phase 1: Setup
-2. Complete Phase 2: Foundational (CRITICAL — blocks all stories)
-3. Complete Phase 3: User Story 1 — Streak Engagement
-4. **STOP and VALIDATE**: Test streak bonus, badge, recovery independently
-5. Deploy/demo if ready
+1. Complete Phase 1: Setup (T001)
+2. Complete Phase 2: Foundational (T002–T008)
+3. Complete Phase 3: US1 — Streak Engagement (T009–T014)
+4. Complete Phase 4: US2 — Banner Ad (T015–T018)
+5. **STOP and VALIDATE**: Both stories independently testable
+6. Deploy — streak retention + banner revenue are live
 
 ### Incremental Delivery
 
-1. Complete Setup + Foundational → Foundation ready
-2. Add US1 (Streak Engagement) → Test → Deploy/Demo (MVP!)
-3. Add US2 (Banner Ad) → Test → Deploy/Demo
-4. Add US3 (Visual Clarity) + US4 (Session Feedback) → Test → Deploy/Demo
-5. Add US5 (Tap-to-Move) + US6 (Extra Life Ad) → Test → Deploy/Demo
-6. Polish phase → Final release
-
-### Parallel Opportunities by Story
-
-With multiple developers or parallel LLM agents:
-1. Team completes Setup + Foundational together
-2. Once Foundational is done:
-   - Agent A: US1 (Streak Engagement) — touches hud.ts, gameover-scene.ts, streak.test.ts
-   - Agent B: US2 (Banner Ad) — touches native-ad-adapter.ts, web-ad-adapter.ts
-   - Agent C: US3 (Visual Clarity) — touches play-scene.ts enemy-spawned handler
-3. After US1–US3 complete:
-   - Agent A: US4 (Session Feedback) — touches play-scene.ts difficulty handler, gameover-scene.ts
-   - Agent B: US5 (Tap-to-Move) — touches play-scene.ts input handler
-   - Agent C: US6 (Extra Life Ad) — touches gameover-scene.ts
+1. Setup + Foundational → Foundation ready
+2. US1 (Streak Engagement) → Test → Deploy **(MVP!)**
+3. US2 (Banner Ad) → Test → Deploy
+4. US3 (Visual Clarity) → Test → Deploy
+5. US4 (Session Feedback) → Test → Deploy
+6. US5 (Tap-to-Move) → Test → Deploy
+7. US6 (Shield Ad) → Test → Deploy
+8. Each story adds value without breaking previous stories
 
 ---
 
@@ -239,7 +256,8 @@ With multiple developers or parallel LLM agents:
 
 - [P] tasks = different files, no dependencies on incomplete tasks
 - [Story] label maps task to specific user story for traceability
-- Each user story should be independently completable and testable
+- Each user story is independently completable and testable at its checkpoint
+- NFR-03 mandates unit tests for core engine changes (T009, T010)
+- All ad placements follow Constitution Principle VII (natural breaks only, never during gameplay)
+- Zero new dependencies per Constitution Principle III — all features use existing Phaser + Capacitor + AdMob stack
 - Commit after each task or logical group
-- Stop at any checkpoint to validate story independently
-- T019 and T020 are sequential (both modify the `enemy-spawned` handler in play-scene.ts)

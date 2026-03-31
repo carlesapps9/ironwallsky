@@ -1,75 +1,81 @@
-# Feature Spec: Security Vulnerability Remediation
+# Feature Spec: Playability, Engagement & Monetization Improvements
 
-**Date**: 2026-03-11 | **Branch**: `main`
+**Date**: 2026-03-28 | **Branch**: `main`
 
 ## Problem Statement
 
-GitHub Dependabot and npm audit have identified **10 high-severity vulnerabilities** across project dependencies. Additionally, the project lacks proactive code scanning (CodeQL) and a Dependabot configuration file, leaving it exposed to future supply-chain risks. These issues must be reviewed, prioritized, and mitigated to maintain a secure software supply chain.
+Iron Wall Sky has a solid core gameplay loop but lacks engagement hooks that drive repeat play and longer sessions. The monetization layer has only 3 rewarded ad placements and interstitials every 2 runs. Key retention data (daily streak) is tracked but never surfaced. Enemy types are visually indistinguishable. There is no banner ad revenue on idle screens. These gaps limit both player retention and revenue per user.
 
 ## Requirements
 
-### FR-SEC-01: Remediate serialize-javascript RCE (HIGH)
+### Engagement
 
-Add `"serialize-javascript": "^7.0.4"` to the `overrides` block in `package.json` to force the patched version through the `vite-plugin-pwa` → `workbox-build` → `@rollup/plugin-terser` chain. Simultaneously, correct the `vite-plugin-pwa` devDependency range from `"^0.21.0"` to `"^1.2.0"` to match the installed version. **Accepted risk**: the vulnerability is build-time-only with developer-controlled input; no runtime exposure to end users.
+#### FR-ENG-01: Surface Daily Streak on Game-Over Screen
 
-### FR-SEC-02: Remediate node-tar path traversal vulnerabilities (HIGH)
+Display the player's current daily streak count on the game-over screen. The streak counter is already tracked and persisted in `HighScoreRecord.dailyStreak`. Show a streak badge (e.g., "🔥 5-day streak") below the score section. If streak is 0 or 1, show nothing.
 
-Address 6 CVEs in `tar@6.2.1` (via `@capacitor/cli`).
+#### FR-ENG-02: Streak Bonus Score
 
-- **Immediate mitigation**: add `"tar": "^7.5.11"` to the `overrides` block in `package.json`.
-- **Full resolution (deferred)**: upgrade Capacitor CLI from v6 to v8, which natively depends on `tar@^7.5.3+`. Requires companion upgrades of `@capacitor/core`, `@capacitor/android`, `@capacitor/splash-screen`, and `@capacitor-community/admob`. Tracked as a separate feature stub (T015).
+Award a per-run score bonus of `dailyStreak × 100` added to the player's score at run start (on first engine step transition to 'playing'). Display as a HUD notification: "+500 streak bonus". Capped at streak=10 (max bonus = +1000 points). The bonus counts toward displayed score and high score.
 
-**Accepted risk during mitigation period**: `tar` is used only by Capacitor CLI at dev/CI time; it is never executed at runtime in the browser or on users' devices.
+#### FR-ENG-03: Difficulty Wave Labels
 
-### FR-SEC-03: Remediate minimatch ReDoS vulnerabilities (HIGH)
+When `difficulty-increased` event fires, display a brief centered HUD flash: "WAVE {level}" that fades after 1.5s. Uses existing event infrastructure — no engine changes needed.
 
-Apply a scoped override `"replace>minimatch": "^5.1.0"` in `package.json` to break the `@capacitor/assets` → `@trapezedev/project` → `replace` → `minimatch@3.0.5` chain.
+#### FR-ENG-04: Session Stats on Game-Over
 
-**Acceptance criteria**: after `npm install`, `npm audit --audit-level=high` reports either:
-- **0 high-severity findings** (scoped override fully effective), or
-- **≤ 3 high-severity findings** scoped only to `replace/node_modules/minimatch` (accepted risk — `replace` is unmaintained, patterns are hardcoded at build time under developer control).
+Extend the game-over screen to show: best combo achieved during the run, highest wave reached. Track `bestComboMultiplier` in the `Run` entity (updated when combo increases).
 
-Document the actual remaining count in `specs/main/audit-baseline.json`.
+### Playability
 
-### FR-SEC-04: Enable GitHub Dependabot alerts
+#### FR-PLAY-01: Enemy Type Visual Differentiation
 
-Add `.github/dependabot.yml` to enable automated dependency update PRs for npm and GitHub Actions ecosystems.
+Apply distinct tints to enemy sprites based on `enemyType`:
+- `standard`: no tint (default white)
+- `drifter`: blue tint (0x4488ff)
+- `armored`: orange tint (0xffaa44)
+- `speeder`: red tint (0xff4444)
 
-### FR-SEC-05: Enable GitHub CodeQL code scanning
+Applied at spawn time in PlayScene's `enemy-spawned` handler.
 
-Add a CodeQL workflow to `.github/workflows/` for JavaScript/TypeScript static analysis on PRs and pushes.
+#### FR-PLAY-02: Speeder Spawn Warning
 
-### FR-SEC-06: Add Content Security Policy
+When a `speeder` enemy spawns, show a brief red flash indicator at the spawn x-position. The adapter shows a 300ms warning marker when a speeder-type `enemy-spawned` event is received, at the top of the screen at the enemy's x-position. The warning marker appears simultaneously with spawn; since the enemy starts at y=-32 (off-screen), the marker is visible ~300ms before the enemy enters the viewport.
 
-Add a CSP meta tag to `index.html` restricting script sources, preventing inline scripts (except Vite-generated), and blocking unsafe eval.
+#### FR-PLAY-03: Tap-to-Move Alternative Input
 
-### FR-SEC-07: Audit npm audit CI gate
+In addition to drag input, support single-tap positioning: when the player taps (pointerdown followed by pointerup within 150ms and <10px movement), the player character lerps to the tap x-position over 100ms. Does not replace drag — both inputs coexist.
 
-Add an `npm audit --audit-level=high` step to the CI workflow to fail builds on new high/critical vulnerabilities.
+### Monetization
+
+#### FR-MON-01: Banner Ad on Game-Over Screen
+
+Display a bottom banner ad on the game-over screen. Uses AdMob adaptive banner on native, simulated on web. If the banner fails to load, the game-over screen displays normally. The banner is hidden when transitioning to PlayScene.
+
+#### FR-MON-02: Rewarded Ad for Streak Recovery
+
+When `dailyStreak > 3` and the streak would reset (player missed a day — `lastPlayedDate` is not today and not yesterday), offer on the game-over screen: "🔥 Watch ad to save your {N}-day streak!". On rewarded ad completion, preserve the streak. Available once per session (tracked via a module-level flag in the adapter, not on Run — Run resets per run). Only shown when streak is at risk.
+
+#### FR-MON-03: Optional Pre-Run Shield Ad
+
+On the game-over screen, alongside the retry button, offer: "▶ Watch ad for extra life?" On completion, the next run starts with 4 lives instead of 3 (via `grantBonusLife()`). One-time per run. Does not appear on first ever run (runIndex === 0). Completely optional.
+
+#### FR-MON-04: Banner Ad Unit Configuration
+
+Add `VITE_ADMOB_BANNER_ANDROID` and `VITE_ADMOB_BANNER_IOS` environment variables. The `AdService` interface gains `showBanner(): Promise<void>` and `hideBanner(): Promise<void>` methods.
 
 ## Non-Functional Requirements
 
-- NFR-SEC-01: All dependency upgrades must pass existing CI gates (tests, lint, build, bundle size).
-- NFR-SEC-02: Capacitor upgrade (if performed) must maintain Android build compatibility.
-- NFR-SEC-03: No new runtime dependencies introduced for security fixes.
-
-## Requirement → Task Traceability
-
-| Requirement | User Story | Task IDs | Notes |
-|------------|-----------|----------|-------|
-| FR-SEC-01 | US1 | T002, T004, T005, T006 | npm override + version-range correction |
-| FR-SEC-02 | US1 (partial) | T002, T015 | Override immediate; Capacitor 8 deferred |
-| FR-SEC-03 | US1 | T003, T005 | Scoped override; acceptance per A1 criteria |
-| FR-SEC-04 | US2 | T007 | `.github/dependabot.yml` |
-| FR-SEC-05 | US3 | T009, T010 | `.github/workflows/codeql.yml` |
-| FR-SEC-06 | US4 | T011, T012 | CSP meta tag in `index.html` |
-| FR-SEC-07 | US5 | T013 | npm audit step in `ci.yml` (depends on US1) |
-| NFR-SEC-01 | US1 | T006 | Web build + Vitest tests |
-| NFR-SEC-02 | US1 | T006 | Android Capacitor sync verification |
-| NFR-SEC-03 | US1 | — | Satisfied by design (overrides only) |
+- NFR-01: All changes must pass existing CI gates (tests, lint, build, type-check).
+- NFR-02: No new runtime dependencies. All features use existing Phaser 3 + Capacitor + AdMob stack.
+- NFR-03: Core engine changes (Run entity fields, streak bonus) must have unit tests with seeded RNG.
+- NFR-04: Ad placements must follow Constitution Principle VII (natural breaks only, never during gameplay).
+- NFR-05: All visual feedback must work when muted (Constitution Principle IV.16).
+- NFR-06: Banner ad must not overlap interactive elements or reduce touch targets below 48×48px.
 
 ## Out of Scope
 
-- Android-specific security hardening (ProGuard rules, network security config) — separate feature.
-- Runtime application security monitoring (WAF, RASP).
-- Penetration testing.
+- Persistent lifetime unlock progression (cosmetic ship skins) — separate feature.
+- Powerup drops from enemies — separate feature, requires new entity types.
+- Remote config A/B testing framework — separate feature.
+- In-app purchases — project is ads-only per constitution.

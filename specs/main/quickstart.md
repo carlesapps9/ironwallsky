@@ -1,80 +1,83 @@
-# Quickstart: Security Vulnerability Remediation
+# Quickstart: Playability, Engagement & Monetization Improvements
 
-**Date**: 2026-03-11 | **Spec**: [spec.md](spec.md)
+**Date**: 2026-03-28
 
 ## Prerequisites
 
-- Node.js 20+
-- npm 10+
-- Git
-- GitHub repository admin access (for Dependabot and code scanning settings)
-- (Optional) Android SDK + JDK 21 if verifying Capacitor upgrade
+- Node.js 18+, npm 9+
+- Android Studio (for Android builds)
+- Existing `.env` with AdMob ad unit IDs
+
+## New Environment Variables
+
+Add to `.env`:
+
+```
+VITE_ADMOB_BANNER_ANDROID=ca-app-pub-XXXXX/XXXXX
+VITE_ADMOB_BANNER_IOS=ca-app-pub-XXXXX/XXXXX
+```
+
+## Development
+
+```bash
+npm run dev          # Start Vite dev server at localhost:5173
+npm test             # Run all 120+ Vitest tests
+npx tsc --noEmit     # Type-check
+```
 
 ## Implementation Order
 
-### Step 1: Apply npm overrides (LOW RISK)
+### Phase A: Core Engine Changes (no visual changes)
 
-Add `overrides` to `package.json` to force patched versions of transitive dependencies:
+1. **Add `bestComboMultiplier` to Run entity** — `entities.ts`, `engine.ts`
+2. **Add streak bonus logic** — `engine.ts` step() transition
+3. **Add `grantBonusLife()` method** — `engine.ts`
+4. **Add `recoverStreak()` method** — `engine.ts`
+5. **Add new events** — `events.ts` (streak-bonus-applied, streak-recovered)
+6. **Unit tests** — scoring.test.ts, engine.test.ts
 
-```json
-{
-  "overrides": {
-    "serialize-javascript": "^7.0.4",
-    "tar": "^7.5.11"
-  }
-}
-```
+### Phase B: Playability (visual only, no monetization)
 
-Then run `npm install` and verify with `npm audit`.
+7. **Enemy type tints** — play-scene.ts enemy-spawned handler
+8. **Speeder spawn warning** — play-scene.ts
+9. **Wave labels** — play-scene.ts difficulty-increased handler
+10. **Tap-to-move** — play-scene.ts input handler
 
-### Step 2: Fix vite-plugin-pwa version range
+### Phase C: Engagement UI
 
-Update `package.json` to match installed version:
-```diff
-- "vite-plugin-pwa": "^0.21.0"
-+ "vite-plugin-pwa": "^1.2.0"
-```
+11. **Streak display on game-over** — gameover-scene.ts
+12. **Streak bonus HUD notification** — hud.ts
+13. **Session stats on game-over** — gameover-scene.ts (bestCombo, wave)
 
-### Step 3: Add Dependabot config
+### Phase D: Monetization
 
-Create `.github/dependabot.yml` — no code changes, just a YAML config file.
+14. **AdService banner interface** — ad-adapter.ts
+15. **Native banner implementation** — native-ad-adapter.ts
+16. **Web banner simulation** — web-ad-adapter.ts
+17. **Banner on game-over screen** — gameover-scene.ts
+18. **Streak recovery rewarded ad** — gameover-scene.ts
+19. **Pre-run extra life ad** — gameover-scene.ts
 
-### Step 4: Add CodeQL workflow
+### Phase E: Integration & Release
 
-Create `.github/workflows/codeql.yml` — no code changes, just a YAML workflow file.
+20. **Integration tests** — streak.test.ts
+21. **Full validation** — tsc, tests, build, cap sync, bundleRelease
+22. **Version bump & release**
 
-### Step 5: Add CSP to index.html
-
-Add a single `<meta>` tag. Test that:
-- Game loads and runs normally
-- Phaser renders correctly
-- Service worker registers
-- Ads load (if testing with real ad units)
-
-### Step 6: Add npm audit CI gate
-
-Add one step to `.github/workflows/ci.yml` in the lint-typecheck job.
-
-### Step 7: (Deferred) Capacitor 8 upgrade
-
-This is a major version upgrade affecting multiple packages and the Android project. It should be planned as a separate feature branch with dedicated testing.
-
-## Verification
+## Build & Release
 
 ```bash
-# Check all vulnerabilities are addressed
-npm audit
-
-# Run existing tests
-npm test
-
-# Build and verify
-npm run build
-
-# Check bundle size hasn't changed
-du -sh dist/
+npm run build                          # Production build
+npx cap sync android                   # Sync to Android
+cd android && ./gradlew bundleRelease  # Build AAB
 ```
 
-## Rollback
+AAB output: `android/app/build/outputs/bundle/release/app-release.aab`
 
-All changes are in configuration files and `package.json`. Revert the commit to roll back.
+## Testing New Features
+
+- **Streak bonus**: Set `dailyStreak = 5` in localStorage, start a run → see "+500 streak bonus"
+- **Enemy tints**: Play past wave 3 → drifters appear blue; wave 6 → armored orange; wave 10 → speeders red
+- **Wave labels**: Watch for "WAVE N" flash on difficulty increases
+- **Banner ad**: Die → game-over screen shows banner at bottom (native) or simulated (web)
+- **Streak recovery**: Set `dailyStreak = 5, lastPlayedDate = 3 days ago` → see streak recovery offer

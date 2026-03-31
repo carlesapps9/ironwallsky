@@ -1,23 +1,23 @@
-# Implementation Plan: Security Vulnerability Remediation
+# Implementation Plan: Playability, Engagement & Monetization Improvements
 
-**Branch**: `main` | **Date**: 2026-03-11 | **Spec**: [spec.md](spec.md)
+**Branch**: `main` | **Date**: 2026-03-28 | **Spec**: [specs/main/spec.md](../../specs/main/spec.md)
 **Input**: Feature specification from `/specs/main/spec.md`
 
 ## Summary
 
-Remediate 10 high-severity npm dependency vulnerabilities identified by npm audit (proxy for Dependabot findings), add proactive security infrastructure (Dependabot config, CodeQL scanning, CSP headers, npm audit CI gate), and plan Capacitor 8 upgrade to resolve remaining transitive vulnerabilities.
+Add engagement hooks (daily streak display, streak bonus score, wave labels, session stats), playability polish (enemy type tints, speeder warnings, tap-to-move), and new monetization placements (game-over banner ad, streak recovery rewarded ad, pre-run shield ad) to increase session length, repeat play, and revenue per user — all without adding complexity to the core drag-and-shoot loop.
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.6, ES2022 target  
-**Primary Dependencies**: Phaser 3.80, Capacitor 6.2, vite-plugin-pwa 1.2  
-**Storage**: localStorage + IndexedDB (client-side only)  
-**Testing**: Vitest (unit/integration), Playwright (e2e)  
-**Target Platform**: Web (PWA) + Android (Capacitor)  
-**Project Type**: Mobile game (PWA + native wrapper)  
-**Performance Goals**: 60 fps, ≤150 kB compressed initial load  
-**Constraints**: Offline-capable, zero server infrastructure, touch-first mobile UX  
-**Scale/Scope**: Single developer, ~15 source files, 6 dependencies, 8 devDependencies
+**Language/Version**: TypeScript 5.6, Vite 6.4.1
+**Primary Dependencies**: Phaser 3.80 (renderer), Capacitor 6.2 (native bridge), @capacitor-community/admob 6.2.0 (ads)
+**Storage**: localStorage + IndexedDB fallback (HighScoreRecord persistence)
+**Testing**: Vitest (120 unit/integration tests), seeded RNG + injectable clock
+**Target Platform**: Mobile browsers (PWA), Android via Capacitor, iOS via Capacitor
+**Project Type**: Mobile game (hybrid web + native)
+**Performance Goals**: 60 fps, ≤8ms per frame, ≤150kB initial load
+**Constraints**: Offline-capable, zero server infrastructure, ads-only monetization
+**Scale/Scope**: Single-developer project, ~3500 LOC, 2 game scenes + 1 boot scene
 
 ## Constitution Check
 
@@ -25,24 +25,17 @@ Remediate 10 high-severity npm dependency vulnerabilities identified by npm audi
 
 | # | Principle | Status | Notes |
 |---|-----------|--------|-------|
-| III | Minimal Dependencies | ✅ PASS | No new runtime dependencies. npm overrides only affect build-time transitive deps |
-| III | Performance Budgets | ✅ PASS | No bundle size impact — changes are config/package.json only |
-| V | Offline-First | ✅ PASS | PWA functionality preserved; vite-plugin-pwa version range fix only |
-| VI | CI Gates | ✅ PASS | Adding new gate (npm audit) strengthens CI; existing gates unchanged |
-| IX | Minimal Ops | ✅ PASS | No new server infrastructure; all changes are static config |
+| I | Deterministic Core | ✅ PASS | Streak bonus + Run fields are pure engine state; no adapter imports in core |
+| II | Explicit Game Loop & State Machine | ✅ PASS | No new states added; streak bonus applied in existing `starting→playing` transition |
+| III | Minimal Dependencies & Performance Budgets | ✅ PASS | Zero new dependencies; tints use Phaser built-in `setTint()` |
+| IV | Touch-First Portrait-First UX | ✅ PASS | Tap-to-move adds accessibility; all new buttons ≥48×48px; all visual-only feedback |
+| V | Offline-First Reliability | ✅ PASS | All features work offline; banner ad degrades gracefully |
+| VI | Deterministic Testing & CI Gates | ✅ PASS | New Run fields tested with seeded RNG; no wall-clock deps |
+| VII | Ad Isolation | ✅ PASS | Banner on game-over only (idle screen); streak recovery + shield ad at natural breaks |
+| VIII | Zero-Editor Asset Pipeline | ✅ PASS | No new assets; only tints on existing sprites |
+| IX | Minimal Ops & Failure-Tolerant Telemetry | ✅ PASS | No server infrastructure; ads fire-and-forget |
 
-**Post-Phase-1 Re-check**: All gates continue to pass. CSP addition (FR-SEC-06) needs testing to confirm Phaser compatibility but doesn't add dependencies or infrastructure.
-
-## Vulnerability Summary
-
-| # | Package | Installed | Severity | CVE Count | Attack Surface | Fix |
-|---|---------|-----------|----------|-----------|---------------|-----|
-| 1 | serialize-javascript | 6.0.2 | HIGH | 1 (RCE) | Build-time only | npm override → ^7.0.4 |
-| 2 | tar | 6.2.1 | HIGH | 6 (path traversal) | Dev CLI tool | npm override → ^7.5.11; full fix = Capacitor 8 |
-| 3 | minimatch | 3.0.5 | HIGH | 3 (ReDoS) | Build-time only | No upstream fix; accept risk + monitor |
-| 4 | vite-plugin-pwa | 1.2.0 | HIGH | 1 (via workbox-build) | Build-time only | npm override covers serialize-javascript |
-
-**Key finding**: All 10 vulnerabilities are in **build-time/dev-time** transitive dependencies. None affect the runtime application delivered to users. Risk is limited to developer machines and CI runners processing untrusted packages.
+**Gate result: ALL PASS** — proceed to Phase 0.
 
 ## Project Structure
 
@@ -51,30 +44,43 @@ Remediate 10 high-severity npm dependency vulnerabilities identified by npm audi
 ```text
 specs/main/
 ├── plan.md              # This file
-├── spec.md              # Feature specification
-├── research.md          # Phase 0 research findings
-├── data-model.md        # Phase 1 configuration artifacts model
-├── quickstart.md        # Phase 1 implementation guide
-├── contracts/
-│   └── ci-security-gates.md  # Security gate contracts
-└── tasks.md             # Phase 2 output (/speckit.tasks command)
+├── research.md          # Phase 0 output
+├── data-model.md        # Phase 1 output
+├── quickstart.md        # Phase 1 output
+└── contracts/           # Phase 1 output (game events contract)
 ```
 
-### Source Code Changes
+### Source Code (repository root)
 
 ```text
-# Files to MODIFY
-package.json                          # Add overrides, fix vite-plugin-pwa range
-index.html                            # Add CSP meta tag
-.github/workflows/ci.yml             # Add npm audit step
+src/
+├── core/
+│   ├── engine.ts          # Streak bonus grant, bonus life support
+│   ├── entities.ts        # Run entity: bestComboMultiplier, streakRecoveryOffered
+│   ├── events.ts          # streak-bonus-applied event, streak-recovered event
+│   └── systems/
+│       ├── scoring.ts     # bestComboMultiplier tracking
+│       └── spawner.ts     # (unchanged — warning handled in adapter)
+├── adapters/
+│   ├── phaser/
+│   │   ├── play-scene.ts  # Wave labels, enemy tints, speeder warning, tap input
+│   │   ├── gameover-scene.ts  # Streak display, session stats, banner ad, streak recovery, shield ad
+│   │   └── hud.ts         # Streak bonus notification
+│   └── ads/
+│       ├── ad-adapter.ts  # AdService: +showBanner(), +hideBanner()
+│       ├── native-ad-adapter.ts  # Banner ad implementation
+│       └── web-ad-adapter.ts     # Banner ad simulation
 
-# Files to CREATE
-.github/dependabot.yml                # Dependabot configuration
-.github/workflows/codeql.yml         # CodeQL code scanning workflow
+tests/
+├── unit/
+│   ├── scoring.test.ts    # Streak bonus tests
+│   └── engine.test.ts     # Bonus life, bestCombo tracking
+└── integration/
+    └── streak.test.ts     # Streak recovery flow
 ```
 
-**Structure Decision**: All changes are configuration-level. No new source directories or modules. Existing project structure is unchanged.
+**Structure Decision**: Follows existing adapter pattern. Pure game logic in `src/core/`, rendering/input/ads in `src/adapters/`. No new directories needed.
 
 ## Complexity Tracking
 
-No constitution violations. All changes are configuration-level with zero new runtime dependencies.
+No constitution violations — no entries needed.
