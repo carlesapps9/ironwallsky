@@ -31,13 +31,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 Add `bestComboMultiplier: number` (default 1.0) and `streakRecoveryOffered: boolean` (default false) fields to `Run` interface and `createRun()` defaults in src/core/entities.ts
-- [ ] T003 [P] Add `StreakBonusAppliedEvent` (`bonus`, `streak`) and `StreakRecoveredEvent` (`streak`) interfaces, register `'streak-bonus-applied'` and `'streak-recovered'` in `GameEventType` union and `GameEventMap` in src/core/events.ts
-- [ ] T004 [P] Add `showBanner(): Promise<void>` and `hideBanner(): Promise<void>` to `AdService` interface and `createNoOpAdService()` stub in src/adapters/ads/ad-adapter.ts
-- [ ] T005 Implement streak bonus logic in starting→playing phase transition: `Math.min(dailyStreak, 10) * 100` added to score, emit `score-changed` and `streak-bonus-applied` events in src/core/engine.ts
-- [ ] T006 Implement `grantBonusLife()` method with `phase === 'starting'` guard that sets `remainingLives = maxLives + 1` and emits `life-lost` event in src/core/engine.ts
-- [ ] T007 Implement `recoverStreak()` method that sets `highScore.lastPlayedDate` to yesterday's date string and emits `streak-recovered` event in src/core/engine.ts
-- [ ] T008 [P] Update `bestComboMultiplier` to `Math.max(bestComboMultiplier, comboMultiplier)` when combo increases in src/core/systems/scoring.ts
+- [x] T002 Add `bestComboMultiplier: number` (default 1.0) and `streakRecoveryOffered: boolean` (default false) fields to `Run` interface and `createRun()` defaults in src/core/entities.ts
+- [x] T003 [P] Add `StreakBonusAppliedEvent` (`bonus`, `streak`) and `StreakRecoveredEvent` (`streak`) interfaces, register `'streak-bonus-applied'` and `'streak-recovered'` in `GameEventType` union and `GameEventMap` in src/core/events.ts
+- [x] T004 [P] Add `showBanner(): Promise<void>` and `hideBanner(): Promise<void>` to `AdService` interface and `createNoOpAdService()` stub in src/adapters/ads/ad-adapter.ts
+- [x] T005 Implement streak bonus logic in starting→playing phase transition: `Math.min(dailyStreak, 10) * 100` added to score, emit `score-changed` and `streak-bonus-applied` events in src/core/engine.ts
+- [x] T006 Implement `grantBonusLife()` method with `phase === 'starting'` guard that sets `remainingLives = maxLives + 1` and emits `life-lost` event in src/core/engine.ts
+- [x] T007 Implement `recoverStreak()` method that sets `highScore.lastPlayedDate` to yesterday's date string and emits `streak-recovered` event in src/core/engine.ts
+- [x] T008 [P] Update `bestComboMultiplier` to `Math.max(bestComboMultiplier, comboMultiplier)` when combo increases in src/core/systems/scoring.ts
 
 **Checkpoint**: Foundation ready — all engine methods, entity fields, events, and interfaces are in place. User story implementation can now begin.
 
