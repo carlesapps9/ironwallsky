@@ -215,11 +215,44 @@ export function createWebAdAdapter(): AdService {
   }
 
   async function showBanner(): Promise<void> {
-    // T016 will implement full web banner simulation
+    if (!initialized) return;
+    // Remove existing banner if any
+    const existing = document.getElementById('iws-banner');
+    if (existing) return;
+
+    try {
+      const banner = document.createElement('div');
+      banner.id = 'iws-banner';
+      banner.style.cssText = `
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 50px;
+        z-index: 9999;
+        background: #222;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #888;
+        font-family: monospace;
+        font-size: 12px;
+        border-top: 1px solid #444;
+      `;
+      banner.textContent = 'Ad Banner (simulated)';
+      document.body.appendChild(banner);
+    } catch {
+      console.warn('[Ads] Web banner show failed');
+    }
   }
 
   async function hideBanner(): Promise<void> {
-    // T016 will implement full web banner simulation
+    try {
+      const banner = document.getElementById('iws-banner');
+      if (banner) banner.remove();
+    } catch {
+      console.warn('[Ads] Web banner hide failed');
+    }
   }
 
   return { initialize, showInterstitial, showRewarded, showRevive, showDouble, showBanner, hideBanner, isAvailable };
