@@ -213,8 +213,25 @@ export class PlayScene extends Phaser.Scene {
       }
     });
 
-    this.input.on('pointerup', () => {
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       this.isDragging = false;
+
+      // T023: Tap-to-move — quick press (<150ms) with minimal movement (<10px)
+      const dx = pointer.x - pointer.downX;
+      const dy = pointer.y - pointer.downY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (pointer.getDuration() < 150 && distance < 10) {
+        const targetX = pointer.x;
+        this.tweens.add({
+          targets: this.playerSprite,
+          x: targetX,
+          duration: 100,
+          ease: 'Sine.easeOut',
+          onUpdate: () => {
+            this.engine.setPlayerX(this.playerSprite.x);
+          },
+        });
+      }
     });
   }
 
