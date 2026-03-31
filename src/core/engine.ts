@@ -131,6 +131,8 @@ function createRun(config: GameConfig, runIndex: number): Run {
     comboCount: 0,
     comboMultiplier: 1.0,
     comboLastHitElapsedMs: 0,
+    bestComboMultiplier: 1.0,
+    streakRecoveryOffered: false,
   };
 }
 
