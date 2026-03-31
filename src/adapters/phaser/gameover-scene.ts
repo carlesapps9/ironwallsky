@@ -8,6 +8,9 @@ import Phaser from 'phaser';
 import type { GameEngine } from '@core/engine.js';
 import type { AdService } from '@adapters/ads/ad-adapter.js';
 
+// T013: Module-level session flag — persists across runs but not across app restarts
+let streakRecoveryUsedThisSession = false;
+
 export class GameOverScene extends Phaser.Scene {
   private engine!: GameEngine;
   private adService: AdService | null = null;
@@ -150,8 +153,16 @@ export class GameOverScene extends Phaser.Scene {
     // T076: Share Score button — both continue-offer and game-over phases
     this.createShareButton(cx, cy + 170, run.score, config.scoreTweetTemplate);
 
+    // T013: Streak recovery ad offer — when streak > 3 and at risk
+    if (this.isStreakAtRisk(state.highScore.lastPlayedDate, state.highScore.dailyStreak)) {
+      this.createStreakRecoveryButton(cx, cy + 210, state.highScore.dailyStreak);
+    }
+
     // Retry button (48x48 minimum touch target per FR-024)
-    this.createRetryButton(cx, cy + 220);
+    const retryY = this.isStreakAtRisk(state.highScore.lastPlayedDate, state.highScore.dailyStreak)
+      ? cy + 260
+      : cy + 220;
+    this.createRetryButton(cx, retryY);
   }
 
   private createContinueButton(x: number, y: number): void {
@@ -348,6 +359,51 @@ export class GameOverScene extends Phaser.Scene {
       alpha: 0,
       duration: 1500,
       onComplete: () => feedback.destroy(),
+    });
+  }
+
+  // T013: Check if daily streak is at risk (not played today or yesterday) and worth recovering
+  private isStreakAtRisk(lastPlayedDate: string, dailyStreak: number): boolean {
+    if (dailyStreak <= 3 || !lastPlayedDate || streakRecoveryUsedThisSession) return false;
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+    return lastPlayedDate !== today && lastPlayedDate !== yesterday;
+  }
+
+  // T013: Streak recovery rewarded ad button
+  private createStreakRecoveryButton(x: number, y: number, streak: number): void {
+    const btn = this.add
+      .text(x, y, `Watch ad to save your ${streak}-day streak!`, {
+        fontSize: '14px',
+        color: '#000000',
+        fontFamily: 'monospace',
+        backgroundColor: '#ffaa44',
+        padding: { left: 14, right: 14, top: 10, bottom: 10 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setInteractive({ useHandCursor: true });
+
+    btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
+
+    btn.on('pointerdown', async () => {
+      if (this.adService && this.adService.isAvailable()) {
+        try {
+          const result = await this.adService.showRewarded();
+          if (result === 'shown') {
+            this.engine.recoverStreak();
+            streakRecoveryUsedThisSession = true;
+            btn.setVisible(false);
+            return;
+          }
+          this.showButtonFeedback(btn, 'Ad not available');
+        } catch {
+          this.showButtonFeedback(btn, 'Ad failed');
+        }
+      } else {
+        this.showButtonFeedback(btn, 'Ads not available');
+      }
     });
   }
 
