@@ -56,6 +56,9 @@ export interface EngineCommands {
 
   /** Grant bonus life before run starts (from rewarded ad on game-over). */
   grantBonusLife(): void;
+
+  /** Recover daily streak by setting lastPlayedDate to yesterday (from rewarded ad). */
+  recoverStreak(): void;
 }
 
 /** Full engine API exposed to adapters. */
@@ -434,6 +437,17 @@ export function createEngine(
       state.run.remainingLives = state.config.maxLives + 1;
       state.player.remainingLives = state.run.remainingLives;
       events.emit('life-lost', { remaining: state.run.remainingLives });
+    },
+
+    // T007: Recover daily streak — set lastPlayedDate to yesterday so next endRun keeps the streak
+    recoverStreak(): void {
+      const today = new Date(clock.getDateString());
+      today.setDate(today.getDate() - 1);
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      state.highScore.lastPlayedDate = `${yyyy}-${mm}-${dd}`;
+      events.emit('streak-recovered', { streak: state.highScore.dailyStreak });
     },
 
     setCollisionMasks(masks: CollisionMask[]): void {
