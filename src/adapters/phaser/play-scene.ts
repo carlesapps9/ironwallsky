@@ -160,6 +160,32 @@ export class PlayScene extends Phaser.Scene {
               break;
           }
           this.enemySprites.set(enemy.id, sprite);
+
+          // T073: Restart speeder trail timer for hydrated enemies
+          if (enemy.enemyType === 'speeder' && !this.speederTrailTimers.has(enemy.id)) {
+            const enemyId = enemy.id;
+            const trailTimer = this.time.addEvent({
+              delay: 60,
+              loop: true,
+              callback: () => {
+                const s = this.enemySprites.get(enemyId);
+                if (!s) return;
+                const ghost = this.add.image(s.x, s.y, 'enemy-speeder');
+                ghost.setTint(0xff4444);
+                ghost.setAlpha(0.45);
+                ghost.setDepth(4);
+                this.tweens.add({
+                  targets: ghost,
+                  alpha: 0,
+                  scaleX: 0.7,
+                  scaleY: 0.7,
+                  duration: 150,
+                  onComplete: () => ghost.destroy(),
+                });
+              },
+            });
+            this.speederTrailTimers.set(enemyId, trailTimer);
+          }
         }
       }
     }

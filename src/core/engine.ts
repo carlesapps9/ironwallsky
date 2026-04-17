@@ -237,19 +237,19 @@ export function createEngine(
     }
   }
 
-  function endRun(): void {
-    transitionPhase('game-over');
-
-    // T071: daily streak logic using injectable clock (NOT new Date() — Constitution Principle I)
+  /** Persist streak and high score for the current run. Called by both endRun() and
+   * startNewRun() (when abandoning a continue-offer run via Retry) so scores are
+   * never silently dropped. */
+  function saveRunStats(): void {
     const today = clock.getDateString(); // YYYY-MM-DD
     const hs = state.highScore;
+
+    // T071: daily streak logic using injectable clock (NOT new Date() — Constitution Principle I)
     if (hs.lastPlayedDate === '') {
-      // First ever run
       hs.dailyStreak = 1;
     } else if (hs.lastPlayedDate === today) {
       // Same day — keep streak unchanged
     } else {
-      // Compare dates to determine consecutive day
       const last = new Date(hs.lastPlayedDate).getTime();
       const now  = new Date(today).getTime();
       const diffDays = Math.round((now - last) / 86_400_000);
@@ -257,16 +257,17 @@ export function createEngine(
     }
     hs.lastPlayedDate = today;
 
-    // Check high score
     if (state.run.score > hs.bestScore) {
       const previous = hs.bestScore;
       hs.bestScore = state.run.score;
       hs.dateAchieved = today;
-      events.emit('high-score-beaten', {
-        newBest: state.run.score,
-        previous,
-      });
+      events.emit('high-score-beaten', { newBest: state.run.score, previous });
     }
+  }
+
+  function endRun(): void {
+    transitionPhase('game-over');
+    saveRunStats();
   }
 
   function fixedStep(dt: number): void {
@@ -361,6 +362,13 @@ export function createEngine(
     },
 
     startNewRun(): void {
+      // Persist stats for a run abandoned from the continue-offer screen (Retry button).
+      // endRun() is only reached when lives hit 0 with continueUsed=true; if the player
+      // presses Retry directly from continue-offer, scores and streak would otherwise be lost.
+      if (state.run.phase === 'continue-offer') {
+        saveRunStats();
+      }
+
       const nextRunIndex = state.run.runIndex + 1;
       const newSeed = state.rngSeed + nextRunIndex;
       rng = createRng(newSeed);
