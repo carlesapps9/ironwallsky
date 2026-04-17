@@ -192,7 +192,10 @@ export function createEngine(
   function transitionPhase(to: RunPhase): void {
     const from = state.run.phase;
     if (from === to) return;
-    console.log(`[Engine] Phase transition: ${from} → ${to}`);
+    // eslint-disable-next-line no-console
+    if (typeof import.meta !== 'undefined' && (import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+      console.log(`[Engine] Phase transition: ${from} → ${to}`);
+    }
     state.run.phase = to;
     events.emit('run-phase-changed', { from, to });
   }
@@ -422,7 +425,6 @@ export function createEngine(
       state.run.reviveAvailable = false;
       state.run.remainingLives = 1;
       state.player.remainingLives = 1;
-      console.log('[Engine] grantRevive: life restored → resuming play');
       events.emit('revive-granted', { remainingLives: 1 });
       transitionPhase('playing');
     },
@@ -435,7 +437,6 @@ export function createEngine(
       state.run.score = newScore;
       state.player.score = newScore;
       state.run.doublersUsed = true;
-      console.log(`[Engine] grantScoreDouble: ${originalScore} → ${newScore}`);
       events.emit('score-doubled', { newScore, originalScore });
     },
 
