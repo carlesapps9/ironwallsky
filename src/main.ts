@@ -241,6 +241,8 @@ async function initAds(): Promise<void> {
         // Cancel any interstitial still preparing from game-over so it cannot
         // fire mid-game after the user already started playing (race condition fix).
         cadence.cancel();
+        // Pre-warm interstitial for the NEXT game-over so it shows without delay.
+        void adService!.preloadInterstitial().catch(() => {});
       }
       if (payload.to === 'game-over') {
         const runIndex = engine.getState().run.runIndex;
