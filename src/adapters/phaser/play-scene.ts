@@ -212,8 +212,24 @@ export class PlayScene extends Phaser.Scene {
     const cx = config.worldWidth / 2;
     const cy = config.worldHeight / 2;
 
+    // Semi-transparent backdrop so numbers are clearly readable over active gameplay
+    const backdrop = this.add.graphics();
+    backdrop.fillStyle(0x000000, 0.72);
+    backdrop.fillRoundedRect(cx - 80, cy - 62, 160, 124, 14);
+    backdrop.setDepth(99);
+
+    const subtitle = this.add
+      .text(cx, cy - 42, 'GET READY', {
+        fontSize: '12px',
+        color: '#4499cc',
+        fontFamily: 'monospace',
+        letterSpacing: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(100);
+
     const label = this.add
-      .text(cx, cy, '3', {
+      .text(cx, cy + 14, '', {
         fontSize: '64px',
         color: '#00ffff',
         fontFamily: 'monospace',
@@ -229,6 +245,8 @@ export class PlayScene extends Phaser.Scene {
 
     const advance = (): void => {
       if (i >= steps.length) {
+        backdrop.destroy();
+        subtitle.destroy();
         label.destroy();
         this.resumeCountdown = false;
         return;
@@ -243,7 +261,7 @@ export class PlayScene extends Phaser.Scene {
         ease: 'Back.easeOut',
       });
       i++;
-      this.time.delayedCall(800, advance);
+      this.time.delayedCall(1000, advance);
     };
 
     advance();

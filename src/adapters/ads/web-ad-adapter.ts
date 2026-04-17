@@ -206,6 +206,7 @@ export function createWebAdAdapter(): AdService {
 
   // No pre-warming needed for simulated web ads.
   async function preloadRewarded(): Promise<void> {}
+  async function preloadInterstitial(): Promise<void> {}
 
   async function showBanner(): Promise<void> {
     if (!initialized) return;
@@ -248,5 +249,5 @@ export function createWebAdAdapter(): AdService {
     }
   }
 
-  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, preloadRewarded, showBanner, hideBanner, isAvailable };
+  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, preloadRewarded, preloadInterstitial, showBanner, hideBanner, isAvailable };
 }

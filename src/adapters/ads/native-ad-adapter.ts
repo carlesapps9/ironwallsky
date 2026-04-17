@@ -20,6 +20,9 @@ export function createNativeAdAdapter(): AdService {
   // Pre-warm state: which adId has been prepared but not yet shown.
   let preloadedAdId: string | null = null;
   let preloadInProgress = false;
+  // Interstitial pre-warm state.
+  let preloadedInterstitial = false;
+  let interstitialPreloadInProgress = false;
 
   async function initialize(): Promise<void> {
     try {
@@ -73,12 +76,18 @@ export function createNativeAdAdapter(): AdService {
     try {
       const { AdMob } = admobModule;
 
-      await AdMob.prepareInterstitial({
-        adId: interstitialId,
-      });
+      if (!preloadedInterstitial) {
+        await AdMob.prepareInterstitial({ adId: interstitialId });
+      }
+      preloadedInterstitial = false; // consume
+
       // Guard: if the user started playing while we were preparing, skip the show.
       if (isCancelled?.()) return 'skipped';
       await AdMob.showInterstitial();
+
+      // Re-warm for the next game-over (fire-and-forget).
+      preloadInterstitial().catch(() => {});
+
       return 'shown';
     } catch (err) {
       console.warn('[Ads] Interstitial failed:', err);
@@ -155,6 +164,23 @@ export function createNativeAdAdapter(): AdService {
     }
   }
 
+  /** Pre-warm the interstitial ad so it fires instantly at game-over. */
+  async function preloadInterstitial(): Promise<void> {
+    if (!initialized || !admobModule) return;
+    if (!isValidAdId(interstitialId)) return;
+    if (interstitialPreloadInProgress || preloadedInterstitial) return;
+    interstitialPreloadInProgress = true;
+    try {
+      const { AdMob } = admobModule;
+      await AdMob.prepareInterstitial({ adId: interstitialId });
+      preloadedInterstitial = true;
+    } catch {
+      preloadedInterstitial = false;
+    } finally {
+      interstitialPreloadInProgress = false;
+    }
+  }
+
   function isAvailable(): boolean {
     return initialized;
   }
@@ -184,5 +210,5 @@ export function createNativeAdAdapter(): AdService {
     }
   }
 
-  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, preloadRewarded, showBanner, hideBanner, isAvailable };
+  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, preloadRewarded, preloadInterstitial, showBanner, hideBanner, isAvailable };
 }

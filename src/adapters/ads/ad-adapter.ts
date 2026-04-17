@@ -24,6 +24,9 @@ export interface AdService {
   /** Pre-warm the rewarded ad so it shows instantly when the user clicks. */
   preloadRewarded(): Promise<void>;
 
+  /** Pre-warm the interstitial ad at run start so it fires immediately at game-over. */
+  preloadInterstitial(): Promise<void>;
+
   /** Show an adaptive banner ad (e.g. on game-over screen). */
   showBanner(): Promise<void>;
 
@@ -43,6 +46,7 @@ export function createNoOpAdService(): AdService {
     async showRevive(): Promise<AdResult> { return 'skipped'; },
     async showDouble(): Promise<AdResult> { return 'skipped'; },
     async preloadRewarded(): Promise<void> {},
+    async preloadInterstitial(): Promise<void> {},
     async showBanner(): Promise<void> {},
     async hideBanner(): Promise<void> {},
     isAvailable(): boolean { return false; },

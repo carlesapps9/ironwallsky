@@ -14,6 +14,8 @@ let streakRecoveryUsedThisSession = false;
 export class GameOverScene extends Phaser.Scene {
   private engine!: GameEngine;
   private adService: AdService | null = null;
+  // Guard: prevents two ad shows running concurrently (e.g. Continue + Revive tapped together).
+  private adInFlight = false;
 
   constructor() {
     super({ key: 'GameOverScene' });
@@ -22,6 +24,7 @@ export class GameOverScene extends Phaser.Scene {
   init(data: { engine: GameEngine; adService?: AdService }): void {
     this.engine = data.engine;
     this.adService = data.adService ?? null;
+    this.adInFlight = false; // reset on every scene (re)start
   }
 
   create(): void {
@@ -220,28 +223,11 @@ export class GameOverScene extends Phaser.Scene {
       Math.max(btn.height, 48),
     );
 
-    btn.on('pointerdown', async () => {
-      btn.disableInteractive(); // prevent double-tap
-      if (this.adService && this.adService.isAvailable()) {
-        try {
-          const result = await this.adService.showRewarded();
-          if (result === 'shown') {
-            this.engine.grantContinue();
-            this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
-            return;
-          }
-          // Ad failed/skipped — do NOT grant continue (US4.6)
-          this.showButtonFeedback(btn, 'Ad not available');
-          btn.setInteractive({ useHandCursor: true });
-        } catch {
-          // Never block retry per FR-017
-          this.showButtonFeedback(btn, 'Ad failed');
-          btn.setInteractive({ useHandCursor: true });
-        }
-      } else {
-        this.showButtonFeedback(btn, 'Ads not available');
-        btn.setInteractive({ useHandCursor: true });
-      }
+    btn.on('pointerdown', () => {
+      void this.runAdButton(btn, () => this.adService!.showRewarded(), () => {
+        this.engine.grantContinue();
+        this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
+      });
     });
   }
 
@@ -261,28 +247,11 @@ export class GameOverScene extends Phaser.Scene {
 
     btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
 
-    btn.on('pointerdown', async () => {
-      btn.disableInteractive(); // prevent double-tap
-      if (this.adService && this.adService.isAvailable()) {
-        try {
-          // T079: Use dedicated showRevive() placement (not generic showRewarded)
-          const result = await this.adService.showRevive();
-          if (result === 'shown') {
-            this.engine.grantRevive();
-            this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
-            return;
-          }
-          this.showButtonFeedback(btn, 'Ad not available');
-          btn.setInteractive({ useHandCursor: true });
-        } catch {
-          // Never block retry per FR-017
-          this.showButtonFeedback(btn, 'Ad failed');
-          btn.setInteractive({ useHandCursor: true });
-        }
-      } else {
-        this.showButtonFeedback(btn, 'Ads not available');
-        btn.setInteractive({ useHandCursor: true });
-      }
+    btn.on('pointerdown', () => {
+      void this.runAdButton(btn, () => this.adService!.showRevive(), () => {
+        this.engine.grantRevive();
+        this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
+      });
     });
   }
 
@@ -302,29 +271,11 @@ export class GameOverScene extends Phaser.Scene {
 
     btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
 
-    btn.on('pointerdown', async () => {
-      btn.disableInteractive(); // prevent double-tap
-      if (this.adService && this.adService.isAvailable()) {
-        try {
-          // T080: Use dedicated showDouble() placement (not generic showRewarded)
-          const result = await this.adService.showDouble();
-          if (result === 'shown') {
-            this.engine.grantScoreDouble();
-            // Refresh scene to show updated (doubled) score
-            this.scene.restart();
-            return;
-          }
-          this.showButtonFeedback(btn, 'Ad not available');
-          btn.setInteractive({ useHandCursor: true });
-        } catch {
-          // Never block retry per FR-017
-          this.showButtonFeedback(btn, 'Ad failed');
-          btn.setInteractive({ useHandCursor: true });
-        }
-      } else {
-        this.showButtonFeedback(btn, 'Ads not available');
-        btn.setInteractive({ useHandCursor: true });
-      }
+    btn.on('pointerdown', () => {
+      void this.runAdButton(btn, () => this.adService!.showDouble(), () => {
+        this.engine.grantScoreDouble();
+        this.scene.restart();
+      });
     });
   }
 
@@ -410,6 +361,51 @@ export class GameOverScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Unified ad-button handler:
+   * - Guards against concurrent ad shows (adInFlight)
+   * - Shows "⏳ Loading..." on the button while the ad prepares
+   * - Calls onGranted() only on 'shown'; shows feedback and re-enables on anything else
+   */
+  private async runAdButton(
+    btn: Phaser.GameObjects.Text,
+    showAd: () => Promise<import('@adapters/ads/ad-adapter.js').AdResult>,
+    onGranted: () => void,
+  ): Promise<void> {
+    if (this.adInFlight) return;
+    this.adInFlight = true;
+    btn.disableInteractive();
+    const originalText = btn.text;
+    btn.setText('⏳ Loading...');
+
+    if (!this.adService || !this.adService.isAvailable()) {
+      this.adInFlight = false;
+      btn.setText(originalText);
+      this.showButtonFeedback(btn, 'Ads not available');
+      btn.setInteractive({ useHandCursor: true });
+      return;
+    }
+
+    try {
+      const result = await showAd();
+      if (result === 'shown') {
+        this.adInFlight = false; // reset before grant (scene may stay or navigate away)
+        onGranted();
+        return;
+      }
+      const msg = result === 'dismissed' ? 'Ad skipped' : 'Ad not available';
+      this.adInFlight = false;
+      btn.setText(originalText);
+      this.showButtonFeedback(btn, msg);
+      btn.setInteractive({ useHandCursor: true });
+    } catch {
+      this.adInFlight = false;
+      btn.setText(originalText);
+      this.showButtonFeedback(btn, 'Ad failed');
+      btn.setInteractive({ useHandCursor: true });
+    }
+  }
+
   // T013: Check if daily streak is at risk (not played today or yesterday) and worth recovering
   private isStreakAtRisk(lastPlayedDate: string, dailyStreak: number): boolean {
     if (dailyStreak <= 3 || !lastPlayedDate || streakRecoveryUsedThisSession) return false;
@@ -435,27 +431,12 @@ export class GameOverScene extends Phaser.Scene {
 
     btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
 
-    btn.on('pointerdown', async () => {
-      btn.disableInteractive(); // prevent double-tap
-      if (this.adService && this.adService.isAvailable()) {
-        try {
-          const result = await this.adService.showRewarded();
-          if (result === 'shown') {
-            this.engine.recoverStreak();
-            streakRecoveryUsedThisSession = true;
-            btn.setVisible(false);
-            return;
-          }
-          this.showButtonFeedback(btn, 'Ad not available');
-          btn.setInteractive({ useHandCursor: true });
-        } catch {
-          this.showButtonFeedback(btn, 'Ad failed');
-          btn.setInteractive({ useHandCursor: true });
-        }
-      } else {
-        this.showButtonFeedback(btn, 'Ads not available');
-        btn.setInteractive({ useHandCursor: true });
-      }
+    btn.on('pointerdown', () => {
+      void this.runAdButton(btn, () => this.adService!.showRewarded(), () => {
+        this.engine.recoverStreak();
+        streakRecoveryUsedThisSession = true;
+        btn.setVisible(false);
+      });
     });
   }
 
@@ -475,28 +456,13 @@ export class GameOverScene extends Phaser.Scene {
 
     btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
 
-    btn.on('pointerdown', async () => {
-      btn.disableInteractive(); // prevent double-tap
-      if (this.adService && this.adService.isAvailable()) {
-        try {
-          const result = await this.adService.showRewarded();
-          if (result === 'shown') {
-            // T025: Start new run then grant bonus life before first step
-            this.engine.startNewRun();
-            this.engine.grantBonusLife();
-            this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
-            return;
-          }
-          this.showButtonFeedback(btn, 'Ad not available');
-          btn.setInteractive({ useHandCursor: true });
-        } catch {
-          this.showButtonFeedback(btn, 'Ad failed');
-          btn.setInteractive({ useHandCursor: true });
-        }
-      } else {
-        this.showButtonFeedback(btn, 'Ads not available');
-        btn.setInteractive({ useHandCursor: true });
-      }
+    btn.on('pointerdown', () => {
+      void this.runAdButton(btn, () => this.adService!.showRewarded(), () => {
+        // T025: Start new run then grant bonus life before first step
+        this.engine.startNewRun();
+        this.engine.grantBonusLife();
+        this.scene.start('PlayScene', { engine: this.engine, adService: this.adService });
+      });
     });
   }
 
