@@ -134,6 +134,17 @@ export function updateCollisions(state: GameState, events: GameEventBus): void {
         reason: 'hit-enemy',
       });
 
+      // T073: emit enemy-hit when armored enemy survives (health > 0)
+      if (enemy.health > 0) {
+        events.emit('enemy-hit', {
+          id: enemy.id,
+          x: enemy.position.x,
+          y: enemy.position.y,
+          enemyType: enemy.enemyType,
+          health: enemy.health,
+        });
+      }
+
       if (enemy.health <= 0) {
         enemy.active = false;
 

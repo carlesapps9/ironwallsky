@@ -104,6 +104,15 @@ export interface StreakRecoveredEvent {
   streak: number;
 }
 
+/** Emitted when a projectile hits an enemy that survives (health > 0 after hit). */
+export interface EnemyHitEvent {
+  id: EntityId;
+  x: number;
+  y: number;
+  enemyType: EnemyType;
+  health: number;
+}
+
 // ─── Event Type Map ───
 
 /** All event names as a string literal union. */
@@ -125,7 +134,8 @@ export type GameEventType =
   | 'score-doubled'
   | 'share-card-tapped'
   | 'streak-bonus-applied'
-  | 'streak-recovered';
+  | 'streak-recovered'
+  | 'enemy-hit';
 
 /** Maps each event type to its payload shape. */
 export interface GameEventMap {
@@ -147,6 +157,7 @@ export interface GameEventMap {
   'share-card-tapped': ShareCardTappedEvent;
   'streak-bonus-applied': StreakBonusAppliedEvent;
   'streak-recovered': StreakRecoveredEvent;
+  'enemy-hit': EnemyHitEvent;
 }
 
 // ─── Event Bus Interface ───

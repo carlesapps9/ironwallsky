@@ -23,6 +23,9 @@ export class PlayScene extends Phaser.Scene {
   private projectileSprites = new Map<number, Phaser.GameObjects.Sprite>();
   private enemySprites = new Map<number, Phaser.GameObjects.Sprite>();
 
+  // T073: Speeder trail timers — cleaned up on enemy despawn
+  private speederTrailTimers = new Map<number, Phaser.Time.TimerEvent>();
+
   // VFX containers (US5 will add more)
   private vfxLayer!: Phaser.GameObjects.Container;
 
@@ -338,21 +341,51 @@ export class PlayScene extends Phaser.Scene {
       if (sprite) {
         sprite.setDepth(5);
         // T019: Apply enemy type color tints
+        // T073: Swap to distinct per-type sprite texture
         switch (payload.enemyType) {
           case 'drifter':
+            sprite.setTexture('enemy-drifter');
             sprite.setTint(0x4488ff);
             break;
           case 'armored':
+            sprite.setTexture('enemy-armored');
             sprite.setTint(0xffaa44);
             break;
           case 'speeder':
+            sprite.setTexture('enemy-speeder');
             sprite.setTint(0xff4444);
             break;
           default:
+            sprite.setTexture('enemy');
             sprite.clearTint();
             break;
         }
         this.enemySprites.set(payload.id, sprite);
+
+        // T073: Speeder motion-trail particle emitter — ghost copies every 60ms
+        if (payload.enemyType === 'speeder') {
+          const trailTimer = this.time.addEvent({
+            delay: 60,
+            loop: true,
+            callback: () => {
+              const s = this.enemySprites.get(payload.id);
+              if (!s) return;
+              const ghost = this.add.image(s.x, s.y, 'enemy-speeder');
+              ghost.setTint(0xff4444);
+              ghost.setAlpha(0.45);
+              ghost.setDepth(4);
+              this.tweens.add({
+                targets: ghost,
+                alpha: 0,
+                scaleX: 0.7,
+                scaleY: 0.7,
+                duration: 150,
+                onComplete: () => ghost.destroy(),
+              });
+            },
+          });
+          this.speederTrailTimers.set(payload.id, trailTimer);
+        }
       }
       // T020: Speeder spawn warning — red flash at spawn x-position
       if (payload.enemyType === 'speeder') {
@@ -369,9 +402,28 @@ export class PlayScene extends Phaser.Scene {
       }
     });
 
+    // T073: Armored hit flash — white tint pulse when armored enemy survives a hit
+    on('enemy-hit', (payload) => {
+      if (payload.enemyType !== 'armored') return;
+      const sprite = this.enemySprites.get(payload.id);
+      if (!sprite) return;
+      sprite.setTint(0xffffff); // white flash
+      this.time.delayedCall(120, () => {
+        if (this.enemySprites.has(payload.id)) {
+          sprite.setTint(0xffaa44); // restore armored orange tint
+        }
+      });
+    });
+
     on('enemy-destroyed', (payload) => {
       const sprite = this.enemySprites.get(payload.id);
       if (sprite) {
+        // T073: Clean up speeder trail timer
+        const trailTimer = this.speederTrailTimers.get(payload.id);
+        if (trailTimer) {
+          trailTimer.destroy();
+          this.speederTrailTimers.delete(payload.id);
+        }
         // US5: Enhanced destruction animation + score pop-up
         this.addDestroyEffect(payload.x, payload.y, payload.scoreAwarded);
         this.addExplosionEffect(payload.x, payload.y);
@@ -383,6 +435,12 @@ export class PlayScene extends Phaser.Scene {
     on('enemy-breached', (payload) => {
       const sprite = this.enemySprites.get(payload.id);
       if (sprite) {
+        // T073: Clean up speeder trail timer on breach too
+        const trailTimer = this.speederTrailTimers.get(payload.id);
+        if (trailTimer) {
+          trailTimer.destroy();
+          this.speederTrailTimers.delete(payload.id);
+        }
         this.enemyPool.despawn(sprite);
         this.enemySprites.delete(payload.id);
       }
@@ -661,6 +719,11 @@ export class PlayScene extends Phaser.Scene {
     this.hud?.destroy();
     this.projectileSprites.clear();
     this.enemySprites.clear();
+    // T073: Clean up all speeder trail timers on scene shutdown
+    for (const timer of this.speederTrailTimers.values()) {
+      timer.destroy();
+    }
+    this.speederTrailTimers.clear();
     if (this.pauseOverlay) {
       this.pauseOverlay.destroy(true);
       this.pauseOverlay = null;

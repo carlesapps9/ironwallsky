@@ -222,6 +222,55 @@ export class BootScene extends Phaser.Scene {
     enemyGraphics.generateTexture('enemy', 32, 32);
     enemyGraphics.destroy();
 
+    // T073: Drifter variant — blue saucer, elongated horizontal fins
+    const drifterGfx = this.add.graphics({ x: 0, y: 0 });
+    drifterGfx.fillStyle(0x2266ff, 0.8); // blue dome
+    drifterGfx.fillEllipse(16, 10, 14, 10);
+    drifterGfx.fillStyle(0x5588cc, 1); // blue-silver disc
+    drifterGfx.fillEllipse(16, 16, 32, 8);
+    drifterGfx.fillStyle(0x3366ff, 1); // elongated lateral fins
+    drifterGfx.fillTriangle(0, 16, 4, 12, 4, 20); // left fin tip
+    drifterGfx.fillTriangle(32, 16, 28, 12, 28, 20); // right fin tip
+    drifterGfx.fillStyle(0x88aaff, 1); // portholes
+    drifterGfx.fillCircle(9, 16, 2);
+    drifterGfx.fillCircle(16, 18, 2);
+    drifterGfx.fillCircle(23, 16, 2);
+    drifterGfx.generateTexture('enemy-drifter', 32, 32);
+    drifterGfx.destroy();
+
+    // T073: Armored variant — orange/gold hexagonal saucer, thicker hull
+    const armoredGfx = this.add.graphics({ x: 0, y: 0 });
+    armoredGfx.fillStyle(0xffaa44, 1); // gold dome
+    armoredGfx.fillEllipse(16, 9, 16, 12);
+    armoredGfx.fillStyle(0xcc7700, 1); // dark gold armored disc
+    armoredGfx.fillEllipse(16, 16, 32, 12);
+    armoredGfx.lineStyle(2, 0xffdd88);
+    armoredGfx.strokeEllipse(16, 16, 30, 10); // armor ring highlight
+    armoredGfx.fillStyle(0xff6600, 1); // engine vents (red-orange)
+    armoredGfx.fillRect(5, 20, 4, 3);
+    armoredGfx.fillRect(14, 21, 4, 3);
+    armoredGfx.fillRect(23, 20, 4, 3);
+    armoredGfx.fillStyle(0xffee44, 1); // bright porthole
+    armoredGfx.fillCircle(16, 10, 3);
+    armoredGfx.generateTexture('enemy-armored', 32, 32);
+    armoredGfx.destroy();
+
+    // T073: Speeder variant — red angular dart shape, streamlined
+    const speederGfx = this.add.graphics({ x: 0, y: 0 });
+    speederGfx.fillStyle(0xff2222, 1); // red body
+    speederGfx.fillTriangle(16, 2, 4, 28, 28, 28); // delta-wing main body
+    speederGfx.fillStyle(0xcc0000, 1); // darker wing edges
+    speederGfx.fillTriangle(16, 8, 4, 28, 10, 24);
+    speederGfx.fillTriangle(16, 8, 22, 24, 28, 28);
+    speederGfx.fillStyle(0xff8800, 1); // orange engine core
+    speederGfx.fillRect(12, 24, 8, 5);
+    speederGfx.fillStyle(0xffff00, 0.9); // yellow thruster glow
+    speederGfx.fillTriangle(14, 29, 18, 29, 16, 34);
+    speederGfx.fillStyle(0xffffff, 0.8); // bright cockpit
+    speederGfx.fillCircle(16, 14, 3);
+    speederGfx.generateTexture('enemy-speeder', 32, 36);
+    speederGfx.destroy();
+
     // Life icon — Oxygen tank / space helmet
     const heartGraphics = this.add.graphics({ x: 0, y: 0 });
     // Helmet visor (blue-cyan dome)
