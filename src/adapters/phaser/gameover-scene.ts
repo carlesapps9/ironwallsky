@@ -221,6 +221,7 @@ export class GameOverScene extends Phaser.Scene {
     );
 
     btn.on('pointerdown', async () => {
+      btn.disableInteractive(); // prevent double-tap
       if (this.adService && this.adService.isAvailable()) {
         try {
           const result = await this.adService.showRewarded();
@@ -231,12 +232,15 @@ export class GameOverScene extends Phaser.Scene {
           }
           // Ad failed/skipped — do NOT grant continue (US4.6)
           this.showButtonFeedback(btn, 'Ad not available');
+          btn.setInteractive({ useHandCursor: true });
         } catch {
           // Never block retry per FR-017
           this.showButtonFeedback(btn, 'Ad failed');
+          btn.setInteractive({ useHandCursor: true });
         }
       } else {
         this.showButtonFeedback(btn, 'Ads not available');
+        btn.setInteractive({ useHandCursor: true });
       }
     });
   }
@@ -258,6 +262,7 @@ export class GameOverScene extends Phaser.Scene {
     btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
 
     btn.on('pointerdown', async () => {
+      btn.disableInteractive(); // prevent double-tap
       if (this.adService && this.adService.isAvailable()) {
         try {
           // T079: Use dedicated showRevive() placement (not generic showRewarded)
@@ -268,12 +273,15 @@ export class GameOverScene extends Phaser.Scene {
             return;
           }
           this.showButtonFeedback(btn, 'Ad not available');
+          btn.setInteractive({ useHandCursor: true });
         } catch {
           // Never block retry per FR-017
           this.showButtonFeedback(btn, 'Ad failed');
+          btn.setInteractive({ useHandCursor: true });
         }
       } else {
         this.showButtonFeedback(btn, 'Ads not available');
+        btn.setInteractive({ useHandCursor: true });
       }
     });
   }
@@ -295,6 +303,7 @@ export class GameOverScene extends Phaser.Scene {
     btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
 
     btn.on('pointerdown', async () => {
+      btn.disableInteractive(); // prevent double-tap
       if (this.adService && this.adService.isAvailable()) {
         try {
           // T080: Use dedicated showDouble() placement (not generic showRewarded)
@@ -306,12 +315,15 @@ export class GameOverScene extends Phaser.Scene {
             return;
           }
           this.showButtonFeedback(btn, 'Ad not available');
+          btn.setInteractive({ useHandCursor: true });
         } catch {
           // Never block retry per FR-017
           this.showButtonFeedback(btn, 'Ad failed');
+          btn.setInteractive({ useHandCursor: true });
         }
       } else {
         this.showButtonFeedback(btn, 'Ads not available');
+        btn.setInteractive({ useHandCursor: true });
       }
     });
   }
@@ -424,6 +436,7 @@ export class GameOverScene extends Phaser.Scene {
     btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
 
     btn.on('pointerdown', async () => {
+      btn.disableInteractive(); // prevent double-tap
       if (this.adService && this.adService.isAvailable()) {
         try {
           const result = await this.adService.showRewarded();
@@ -434,11 +447,14 @@ export class GameOverScene extends Phaser.Scene {
             return;
           }
           this.showButtonFeedback(btn, 'Ad not available');
+          btn.setInteractive({ useHandCursor: true });
         } catch {
           this.showButtonFeedback(btn, 'Ad failed');
+          btn.setInteractive({ useHandCursor: true });
         }
       } else {
         this.showButtonFeedback(btn, 'Ads not available');
+        btn.setInteractive({ useHandCursor: true });
       }
     });
   }
@@ -460,6 +476,7 @@ export class GameOverScene extends Phaser.Scene {
     btn.setSize(Math.max(btn.width, 48), Math.max(btn.height, 48));
 
     btn.on('pointerdown', async () => {
+      btn.disableInteractive(); // prevent double-tap
       if (this.adService && this.adService.isAvailable()) {
         try {
           const result = await this.adService.showRewarded();
@@ -471,11 +488,14 @@ export class GameOverScene extends Phaser.Scene {
             return;
           }
           this.showButtonFeedback(btn, 'Ad not available');
+          btn.setInteractive({ useHandCursor: true });
         } catch {
           this.showButtonFeedback(btn, 'Ad failed');
+          btn.setInteractive({ useHandCursor: true });
         }
       } else {
         this.showButtonFeedback(btn, 'Ads not available');
+        btn.setInteractive({ useHandCursor: true });
       }
     });
   }
