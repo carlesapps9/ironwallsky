@@ -140,6 +140,25 @@ export class PlayScene extends Phaser.Scene {
         const sprite = this.enemyPool.spawn(enemy.position.x, enemy.position.y);
         if (sprite) {
           sprite.setDepth(5);
+          // T073: Apply per-type texture + tint (mirrors enemy-spawned handler)
+          switch (enemy.enemyType) {
+            case 'drifter':
+              sprite.setTexture('enemy-drifter');
+              sprite.setTint(0x4488ff);
+              break;
+            case 'armored':
+              sprite.setTexture('enemy-armored');
+              sprite.setTint(0xffaa44);
+              break;
+            case 'speeder':
+              sprite.setTexture('enemy-speeder');
+              sprite.setTint(0xff4444);
+              break;
+            default:
+              sprite.setTexture('enemy');
+              sprite.clearTint();
+              break;
+          }
           this.enemySprites.set(enemy.id, sprite);
         }
       }
@@ -455,7 +474,7 @@ export class PlayScene extends Phaser.Scene {
 
     on('run-phase-changed', (payload) => {
       if (payload.to === 'game-over' || payload.to === 'continue-offer') {
-        this.scene.start('GameOverScene', { engine: this.engine });
+        this.scene.start('GameOverScene', { engine: this.engine, adService: this.adService });
       }
     });
 

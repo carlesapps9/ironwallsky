@@ -67,7 +67,7 @@ export function createWebAdAdapter(): AdService {
     }
   }
 
-  function createAdOverlay(divId: string): HTMLDivElement {
+  function createAdOverlay(divId: string, onDismiss?: () => void): HTMLDivElement {
     const overlay = document.createElement('div');
     overlay.id = divId;
     overlay.style.cssText = `
@@ -101,6 +101,7 @@ export function createWebAdAdapter(): AdService {
     `;
     closeBtn.onclick = () => {
       overlay.remove();
+      onDismiss?.();
     };
     overlay.appendChild(closeBtn);
 
@@ -134,77 +135,60 @@ export function createWebAdAdapter(): AdService {
 
     try {
       const divId = 'iws-rewarded';
-      const overlay = createAdOverlay(divId);
-
-      // Simulate rewarded ad view time
-      await new Promise<void>((resolve) => {
-        setTimeout(() => {
+      return await new Promise<AdResult>((resolve) => {
+        const overlay = createAdOverlay(divId, () => {
+          clearTimeout(timer);
+          resolve('dismissed');
+        });
+        const timer = setTimeout(() => {
           overlay.remove();
-          resolve();
+          resolve('shown');
         }, 3000);
       });
-
-      return 'shown';
     } catch {
       return 'failed';
     }
   }
 
-  // T080: Revive Shield — distinct GPT slot name, same overlay pattern, 5 s timeout
+  // T080: Revive Shield — distinct GPT slot name, resolves 'dismissed' if closed early
   async function showRevive(): Promise<AdResult> {
     if (!initialized) return 'not-ready';
 
     try {
       const divId = 'iws-revive';
-      const overlay = createAdOverlay(divId);
-
-      const result = await Promise.race([
-        new Promise<AdResult>((resolve) => {
-          // GPT slot: /ironwallsky/revive-shield — real GPT display would go here
-          setTimeout(() => {
-            overlay.remove();
-            resolve('shown');
-          }, 3000);
-        }),
-        new Promise<AdResult>((resolve) =>
-          setTimeout(() => {
-            overlay.remove();
-            resolve('failed');
-          }, 5000),
-        ),
-      ]);
-
-      return result;
+      return await new Promise<AdResult>((resolve) => {
+        const overlay = createAdOverlay(divId, () => {
+          clearTimeout(timer);
+          resolve('dismissed');
+        });
+        // GPT slot: /ironwallsky/revive-shield — real GPT display would go here
+        const timer = setTimeout(() => {
+          overlay.remove();
+          resolve('shown');
+        }, 3000);
+      });
     } catch {
       return 'failed';
     }
   }
 
-  // T080: Score Doubler — distinct GPT slot name, same overlay pattern, 5 s timeout
+  // T080: Score Doubler — distinct GPT slot name, resolves 'dismissed' if closed early
   async function showDouble(): Promise<AdResult> {
     if (!initialized) return 'not-ready';
 
     try {
       const divId = 'iws-double';
-      const overlay = createAdOverlay(divId);
-
-      const result = await Promise.race([
-        new Promise<AdResult>((resolve) => {
-          // GPT slot: /ironwallsky/score-doubler — real GPT display would go here
-          setTimeout(() => {
-            overlay.remove();
-            resolve('shown');
-          }, 3000);
-        }),
-        new Promise<AdResult>((resolve) =>
-          setTimeout(() => {
-            overlay.remove();
-            resolve('failed');
-          }, 5000),
-        ),
-      ]);
-
-      return result;
+      return await new Promise<AdResult>((resolve) => {
+        const overlay = createAdOverlay(divId, () => {
+          clearTimeout(timer);
+          resolve('dismissed');
+        });
+        // GPT slot: /ironwallsky/score-doubler — real GPT display would go here
+        const timer = setTimeout(() => {
+          overlay.remove();
+          resolve('shown');
+        }, 3000);
+      });
     } catch {
       return 'failed';
     }
