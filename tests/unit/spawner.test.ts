@@ -162,37 +162,37 @@ describe('Weighted Enemy-Type Spawner', () => {
     return types;
   }
 
-  it('should only spawn standard enemies at difficulty level < 3', () => {
+  it('should only spawn standard enemies at difficulty level < 2', () => {
     const types = spawnMany(0, 100);
     expect(types.length).toBe(100);
     expect(types.every((t) => t === 'standard')).toBe(true);
   });
 
-  it('should only spawn standard enemies at difficulty level 2', () => {
-    const types = spawnMany(2, 100);
+  it('should only spawn standard enemies at difficulty level 1', () => {
+    const types = spawnMany(1, 100);
     expect(types.every((t) => t === 'standard')).toBe(true);
   });
 
-  it('should include drifter at difficulty level >= 3', () => {
-    const types = spawnMany(3, 1000);
+  it('should include drifter at difficulty level >= 2', () => {
+    const types = spawnMany(2, 1000);
     expect(types).toContain('drifter');
     expect(types).toContain('standard');
-    // armored/speeder should NOT appear at level 3
+    // armored/speeder should NOT appear at level 2
     expect(types).not.toContain('armored');
     expect(types).not.toContain('speeder');
   });
 
-  it('should include armored at difficulty level >= 6', () => {
-    const types = spawnMany(6, 1000);
+  it('should include armored at difficulty level >= 5', () => {
+    const types = spawnMany(5, 1000);
     expect(types).toContain('standard');
     expect(types).toContain('drifter');
     expect(types).toContain('armored');
-    // speeder should NOT appear at level 6
+    // speeder should NOT appear at level 5
     expect(types).not.toContain('speeder');
   });
 
-  it('should include speeder at difficulty level >= 10', () => {
-    const types = spawnMany(10, 1000);
+  it('should include speeder at difficulty level >= 8', () => {
+    const types = spawnMany(8, 1000);
     expect(types).toContain('standard');
     expect(types).toContain('drifter');
     expect(types).toContain('armored');
@@ -200,18 +200,18 @@ describe('Weighted Enemy-Type Spawner', () => {
   });
 
   it('should produce correct distribution over 1000 spawns with fixed seed', () => {
-    const types = spawnMany(10, 1000, 42);
+    const types = spawnMany(8, 1000, 42);
     const counts: Record<string, number> = { standard: 0, drifter: 0, armored: 0, speeder: 0 };
     for (const t of types) counts[t]++;
 
-    // With weights standard:1.0, drifter:0.3, armored:0.2, speeder:0.15
-    // Total = 1.65, so expected ratios: standard~60%, drifter~18%, armored~12%, speeder~9%
-    // Allow ±10% tolerance for seeded RNG variance
-    expect(counts.standard).toBeGreaterThan(400); // > 40%
-    expect(counts.standard).toBeLessThan(800);    // < 80%
-    expect(counts.drifter).toBeGreaterThan(50);   // > 5%
-    expect(counts.armored).toBeGreaterThan(30);   // > 3%
-    expect(counts.speeder).toBeGreaterThan(20);   // > 2%
+    // With weights standard:1.0, drifter:0.50, armored:0.35, speeder:0.25
+    // Total = 2.10, so expected ratios: standard~48%, drifter~24%, armored~17%, speeder~12%
+    // Allow generous tolerance for seeded RNG variance
+    expect(counts.standard).toBeGreaterThan(300); // > 30%
+    expect(counts.standard).toBeLessThan(700);    // < 70%
+    expect(counts.drifter).toBeGreaterThan(80);   // > 8%
+    expect(counts.armored).toBeGreaterThan(50);   // > 5%
+    expect(counts.speeder).toBeGreaterThan(30);   // > 3%
   });
 
   it('should give armored enemies double health', () => {
@@ -223,7 +223,7 @@ describe('Weighted Enemy-Type Spawner', () => {
     // Try many seeds to find one that produces armored
     for (let seed = 0; seed < 200; seed++) {
       const s = makeState();
-      s.run.currentDifficultyLevel = 6;
+      s.run.currentDifficultyLevel = 5;
       const ev = createEventBus();
       const rng = createRng(seed);
       const spawnerState: SpawnerState = {
@@ -246,7 +246,7 @@ describe('Weighted Enemy-Type Spawner', () => {
   it('should give speeder enemies 3x base speed', () => {
     for (let seed = 0; seed < 200; seed++) {
       const s = makeState();
-      s.run.currentDifficultyLevel = 10;
+      s.run.currentDifficultyLevel = 8;
       const ev = createEventBus();
       const rng = createRng(seed);
       const spawnerState: SpawnerState = {

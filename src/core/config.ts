@@ -103,17 +103,17 @@ export const DEFAULT_CONFIG: GameConfig = {
 
   // Enemy
   baseSpawnIntervalMs: 1200,
-  baseEnemySpeed: 120,
+  baseEnemySpeed: 150,
   baseEnemyHealth: 1,
   baseScoreValue: 100,
   maxSimultaneousEnemies: 40,
 
   // Difficulty
-  difficultyStepIntervalMs: 8000,
-  spawnRateMultiplierPerStep: 0.92,
-  speedMultiplierPerStep: 1.08,
+  difficultyStepIntervalMs: 7000,
+  spawnRateMultiplierPerStep: 0.90,
+  speedMultiplierPerStep: 1.10,
   healthIncrementPerStep: 0,
-  maxDifficultyLevel: 15,
+  maxDifficultyLevel: 20,
 
   // Scoring
   milestoneInterval: 500,
@@ -142,9 +142,9 @@ export const DEFAULT_CONFIG: GameConfig = {
   // Enemy type weights
   enemyTypeWeights: {
     standard: 1.0,
-    drifter: 0.3,
-    armored: 0.2,
-    speeder: 0.15,
+    drifter: 0.50,   // Active at level ≥ 2; was 0.30
+    armored: 0.35,   // Active at level ≥ 5; was 0.20
+    speeder: 0.25,   // Active at level ≥ 8; was 0.15
   },
 
   // Drifter movement
