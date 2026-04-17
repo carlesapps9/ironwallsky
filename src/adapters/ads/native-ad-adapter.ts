@@ -17,6 +17,9 @@ export function createNativeAdAdapter(): AdService {
   let reviveId = '';
   let doubleId = '';
   let bannerId = '';
+  // Pre-warm state: which adId has been prepared but not yet shown.
+  let preloadedAdId: string | null = null;
+  let preloadInProgress = false;
 
   async function initialize(): Promise<void> {
     try {
@@ -63,7 +66,7 @@ export function createNativeAdAdapter(): AdService {
     }
   }
 
-  async function showInterstitial(): Promise<AdResult> {
+  async function showInterstitial(isCancelled?: () => boolean): Promise<AdResult> {
     if (!initialized || !admobModule) return 'not-ready';
     if (!isValidAdId(interstitialId)) return 'not-ready';
 
@@ -73,6 +76,8 @@ export function createNativeAdAdapter(): AdService {
       await AdMob.prepareInterstitial({
         adId: interstitialId,
       });
+      // Guard: if the user started playing while we were preparing, skip the show.
+      if (isCancelled?.()) return 'skipped';
       await AdMob.showInterstitial();
       return 'shown';
     } catch (err) {
@@ -92,11 +97,19 @@ export function createNativeAdAdapter(): AdService {
     try {
       const { AdMob } = admobModule;
 
-      await AdMob.prepareRewardVideoAd({ adId });
+      // Skip prepare if this ad unit was pre-warmed (shows instantly).
+      if (preloadedAdId !== adId) {
+        await AdMob.prepareRewardVideoAd({ adId });
+      }
+      preloadedAdId = null; // consume the pre-loaded slot
 
       // showRewardVideoAd resolves with AdMobRewardItem when the user earns
       // the reward. If the user dismisses early the promise rejects.
       const reward = await AdMob.showRewardVideoAd();
+
+      // Pre-warm for the next game-over (fire-and-forget).
+      preloadRewarded().catch(() => {});
+
       if (reward) {
         return 'shown';
       }
@@ -123,6 +136,23 @@ export function createNativeAdAdapter(): AdService {
 
   async function showDouble(): Promise<AdResult> {
     return showRewardedAd(doubleId || rewardedId, 'Score Doubler');
+  }
+
+  /** Pre-warm the primary rewarded ad so it shows instantly when the user clicks. */
+  async function preloadRewarded(): Promise<void> {
+    if (!initialized || !admobModule) return;
+    if (!isValidAdId(rewardedId)) return;
+    if (preloadInProgress) return;
+    preloadInProgress = true;
+    try {
+      const { AdMob } = admobModule;
+      await AdMob.prepareRewardVideoAd({ adId: rewardedId });
+      preloadedAdId = rewardedId;
+    } catch {
+      preloadedAdId = null;
+    } finally {
+      preloadInProgress = false;
+    }
   }
 
   function isAvailable(): boolean {
@@ -154,5 +184,5 @@ export function createNativeAdAdapter(): AdService {
     }
   }
 
-  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, showBanner, hideBanner, isAvailable };
+  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, preloadRewarded, showBanner, hideBanner, isAvailable };
 }

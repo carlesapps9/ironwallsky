@@ -114,7 +114,7 @@ export function createWebAdAdapter(): AdService {
     return overlay;
   }
 
-  async function showInterstitial(): Promise<AdResult> {
+  async function showInterstitial(_isCancelled?: () => boolean): Promise<AdResult> {
     if (!initialized) return 'not-ready';
 
     try {
@@ -204,6 +204,9 @@ export function createWebAdAdapter(): AdService {
     return initialized;
   }
 
+  // No pre-warming needed for simulated web ads.
+  async function preloadRewarded(): Promise<void> {}
+
   async function showBanner(): Promise<void> {
     if (!initialized) return;
     // Remove existing banner if any
@@ -245,5 +248,5 @@ export function createWebAdAdapter(): AdService {
     }
   }
 
-  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, showBanner, hideBanner, isAvailable };
+  return { initialize, showInterstitial, showRewarded, showRevive, showDouble, preloadRewarded, showBanner, hideBanner, isAvailable };
 }
