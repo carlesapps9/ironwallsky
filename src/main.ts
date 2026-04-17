@@ -244,14 +244,20 @@ async function initAds(): Promise<void> {
         // Pre-warm interstitial for the NEXT game-over so it shows without delay.
         void adService!.preloadInterstitial().catch(() => {});
       }
+      // Pre-warm rewarded ad as soon as the game-over screen becomes visible.
+      // This covers BOTH phases:
+      //   continue-offer — first death, player still has a continue available
+      //   game-over      — final death, continue already used or disabled
+      // Without this, rewarded buttons on the continue-offer screen had a 1-2s
+      // delay because preloadRewarded() was only triggered on game-over.
+      if (payload.to === 'continue-offer' || payload.to === 'game-over') {
+        void adService!.preloadRewarded().catch(() => {});
+      }
       if (payload.to === 'game-over') {
         const runIndex = engine.getState().run.runIndex;
         cadence.onRunComplete(runIndex).then((result) => {
           analytics.track({ name: 'interstitial', params: { result } });
         });
-        // Pre-warm the rewarded ad immediately so it shows without delay
-        // when the user clicks "Watch Ad to Continue / Revive / Double".
-        void adService!.preloadRewarded().catch(() => {});
       }
     });
 
