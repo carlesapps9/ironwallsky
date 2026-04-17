@@ -20,9 +20,44 @@ export function createNativeAdAdapter(): AdService {
   // Pre-warm state: which adId has been prepared but not yet shown.
   let preloadedAdId: string | null = null;
   let preloadInProgress = false;
-  // Interstitial pre-warm state.
-  let preloadedInterstitial = false;
-  let interstitialPreloadInProgress = false;
+  // Interstitial pre-warm state — shared by showInterstitial and preloadInterstitial
+  // to prevent concurrent AdMob.prepareInterstitial calls which can error on some SDK versions.
+  let interstitialReady = false;
+  let interstitialPreparing = false;
+  // Banner state — prevents double-show on scene restart (e.g. Score Doubler).
+  let bannerShowing = false;
+
+  /**
+   * Ensures the interstitial is prepared exactly once.
+   * If a prepare is already in-flight, polls until it finishes (max 8s) instead
+   * of issuing a second concurrent AdMob.prepareInterstitial call.
+   */
+  async function ensureInterstitialReady(): Promise<boolean> {
+    if (!initialized || !admobModule) return false;
+    if (!isValidAdId(interstitialId)) return false;
+    if (interstitialReady) return true; // already prepared
+    if (interstitialPreparing) {
+      // Wait for the in-flight prepare to settle (100ms polls, 8s max)
+      let waited = 0;
+      while (interstitialPreparing && waited < 8000) {
+        await new Promise<void>((r) => setTimeout(r, 100));
+        waited += 100;
+      }
+      return interstitialReady;
+    }
+    interstitialPreparing = true;
+    try {
+      const { AdMob } = admobModule;
+      await AdMob.prepareInterstitial({ adId: interstitialId });
+      interstitialReady = true;
+      return true;
+    } catch {
+      interstitialReady = false;
+      return false;
+    } finally {
+      interstitialPreparing = false;
+    }
+  }
 
   async function initialize(): Promise<void> {
     try {
@@ -74,15 +109,19 @@ export function createNativeAdAdapter(): AdService {
     if (!isValidAdId(interstitialId)) return 'not-ready';
 
     try {
-      const { AdMob } = admobModule;
+      // Shared lock — won't double-prepare if preloadInterstitial is in flight.
+      const ready = await ensureInterstitialReady();
+      if (!ready) return 'not-ready';
+      interstitialReady = false; // consume
 
-      if (!preloadedInterstitial) {
-        await AdMob.prepareInterstitial({ adId: interstitialId });
+      // Guard: if the user started playing while we were preparing, skip the show
+      // and re-warm for the next game-over.
+      if (isCancelled?.()) {
+        preloadInterstitial().catch(() => {});
+        return 'skipped';
       }
-      preloadedInterstitial = false; // consume
 
-      // Guard: if the user started playing while we were preparing, skip the show.
-      if (isCancelled?.()) return 'skipped';
+      const { AdMob } = admobModule;
       await AdMob.showInterstitial();
 
       // Re-warm for the next game-over (fire-and-forget).
@@ -166,19 +205,8 @@ export function createNativeAdAdapter(): AdService {
 
   /** Pre-warm the interstitial ad so it fires instantly at game-over. */
   async function preloadInterstitial(): Promise<void> {
-    if (!initialized || !admobModule) return;
-    if (!isValidAdId(interstitialId)) return;
-    if (interstitialPreloadInProgress || preloadedInterstitial) return;
-    interstitialPreloadInProgress = true;
-    try {
-      const { AdMob } = admobModule;
-      await AdMob.prepareInterstitial({ adId: interstitialId });
-      preloadedInterstitial = true;
-    } catch {
-      preloadedInterstitial = false;
-    } finally {
-      interstitialPreloadInProgress = false;
-    }
+    // ensureInterstitialReady handles the lock — safe to call concurrently.
+    await ensureInterstitialReady();
   }
 
   function isAvailable(): boolean {
@@ -188,6 +216,7 @@ export function createNativeAdAdapter(): AdService {
   async function showBanner(): Promise<void> {
     if (!initialized || !admobModule) return;
     if (!isValidAdId(bannerId)) return;
+    if (bannerShowing) return; // already visible — skip to avoid flicker on scene restart
     try {
       const { AdMob, BannerAdSize, BannerAdPosition } = admobModule;
       await AdMob.showBanner({
@@ -195,6 +224,7 @@ export function createNativeAdAdapter(): AdService {
         adSize: BannerAdSize.ADAPTIVE_BANNER,
         position: BannerAdPosition.BOTTOM_CENTER,
       });
+      bannerShowing = true;
     } catch (err) {
       console.warn('[Ads] Banner show failed:', err);
     }
@@ -202,9 +232,11 @@ export function createNativeAdAdapter(): AdService {
 
   async function hideBanner(): Promise<void> {
     if (!initialized || !admobModule) return;
+    if (!bannerShowing) return;
     try {
       const { AdMob } = admobModule;
       await AdMob.hideBanner();
+      bannerShowing = false;
     } catch (err) {
       console.warn('[Ads] Banner hide failed:', err);
     }
