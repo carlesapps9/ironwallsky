@@ -21,9 +21,9 @@ function pickEnemyType(
   const eligible: Array<{ type: EnemyType; weight: number }> = [
     { type: 'standard', weight: weights.standard },
   ];
-  if (level >= 3)  eligible.push({ type: 'drifter',  weight: weights.drifter });
-  if (level >= 6)  eligible.push({ type: 'armored',  weight: weights.armored });
-  if (level >= 10) eligible.push({ type: 'speeder',  weight: weights.speeder });
+  if (level >= 2) eligible.push({ type: 'drifter', weight: weights.drifter });
+  if (level >= 5) eligible.push({ type: 'armored', weight: weights.armored });
+  if (level >= 8) eligible.push({ type: 'speeder', weight: weights.speeder });
 
   const total = eligible.reduce((sum, e) => sum + e.weight, 0);
   let pick = rng.next() * total;
