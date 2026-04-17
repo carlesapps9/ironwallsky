@@ -19,7 +19,7 @@
 
 **Purpose**: Environment variable configuration for banner ad units (FR-MON-04).
 
-- [ ] T001 Add `VITE_ADMOB_BANNER_ANDROID` and `VITE_ADMOB_BANNER_IOS` entries to .env.example with placeholder values per quickstart.md
+- [x] T001 Add `VITE_ADMOB_BANNER_ANDROID` and `VITE_ADMOB_BANNER_IOS` entries to .env.example with placeholder values per quickstart.md
 
 **Checkpoint**: Environment configured — core implementation can begin.
 
@@ -31,13 +31,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 Add `bestComboMultiplier: number` (default 1.0) and `streakRecoveryOffered: boolean` (default false) fields to `Run` interface and `createRun()` defaults in src/core/entities.ts
-- [ ] T003 [P] Add `StreakBonusAppliedEvent` (`bonus`, `streak`) and `StreakRecoveredEvent` (`streak`) interfaces, register `'streak-bonus-applied'` and `'streak-recovered'` in `GameEventType` union and `GameEventMap` in src/core/events.ts
-- [ ] T004 [P] Add `showBanner(): Promise<void>` and `hideBanner(): Promise<void>` to `AdService` interface and `createNoOpAdService()` stub in src/adapters/ads/ad-adapter.ts
-- [ ] T005 Implement streak bonus logic in starting→playing phase transition: `Math.min(dailyStreak, 10) * 100` added to score, emit `score-changed` and `streak-bonus-applied` events in src/core/engine.ts
-- [ ] T006 Implement `grantBonusLife()` method with `phase === 'starting'` guard that sets `remainingLives = maxLives + 1` and emits `life-lost` event in src/core/engine.ts
-- [ ] T007 Implement `recoverStreak()` method that sets `highScore.lastPlayedDate` to yesterday's date string and emits `streak-recovered` event in src/core/engine.ts
-- [ ] T008 [P] Update `bestComboMultiplier` to `Math.max(bestComboMultiplier, comboMultiplier)` when combo increases in src/core/systems/scoring.ts
+- [x] T002 Add `bestComboMultiplier: number` (default 1.0) and `streakRecoveryOffered: boolean` (default false) fields to `Run` interface and `createRun()` defaults in src/core/entities.ts
+- [x] T003 [P] Add `StreakBonusAppliedEvent` (`bonus`, `streak`) and `StreakRecoveredEvent` (`streak`) interfaces, register `'streak-bonus-applied'` and `'streak-recovered'` in `GameEventType` union and `GameEventMap` in src/core/events.ts
+- [x] T004 [P] Add `showBanner(): Promise<void>` and `hideBanner(): Promise<void>` to `AdService` interface and `createNoOpAdService()` stub in src/adapters/ads/ad-adapter.ts
+- [x] T005 Implement streak bonus logic in starting→playing phase transition: `Math.min(dailyStreak, 10) * 100` added to score, emit `score-changed` and `streak-bonus-applied` events in src/core/engine.ts
+- [x] T006 Implement `grantBonusLife()` method with `phase === 'starting'` guard that sets `remainingLives = maxLives + 1` and emits `life-lost` event in src/core/engine.ts
+- [x] T007 Implement `recoverStreak()` method that sets `highScore.lastPlayedDate` to yesterday's date string and emits `streak-recovered` event in src/core/engine.ts
+- [x] T008 [P] Update `bestComboMultiplier` to `Math.max(bestComboMultiplier, comboMultiplier)` when combo increases in src/core/systems/scoring.ts
 
 **Checkpoint**: Foundation ready — all engine methods, entity fields, events, and interfaces are in place. User story implementation can now begin.
 
@@ -53,15 +53,15 @@
 
 ### Tests for User Story 1 (NFR-03 required)
 
-- [ ] T009 [P] [US1] Add unit tests for streak bonus calculation (streak=0 no bonus, streak=2 → +200, streak=10 → +1000, streak=15 → capped at +1000) with seeded RNG in tests/unit/scoring.test.ts
-- [ ] T010 [P] [US1] Add unit tests for `grantBonusLife()` (phase guard, remainingLives = maxLives+1) and `bestComboMultiplier` tracking (updates on increase, ignores decrease) in tests/unit/engine.test.ts
+- [x] T009 [P] [US1] Add unit tests for streak bonus calculation (streak=0 no bonus, streak=2 → +200, streak=10 → +1000, streak=15 → capped at +1000) with seeded RNG in tests/unit/scoring.test.ts
+- [x] T010 [P] [US1] Add unit tests for `grantBonusLife()` (phase guard, remainingLives = maxLives+1) and `bestComboMultiplier` tracking (updates on increase, ignores decrease) in tests/unit/engine.test.ts
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Show streak bonus HUD notification ("+{bonus} streak bonus") on `streak-bonus-applied` event, fade after 1.5s in src/adapters/phaser/hud.ts
-- [ ] T012 [US1] Display streak badge ("🔥 {N}-day streak") below score on game-over screen when `dailyStreak > 1` in src/adapters/phaser/gameover-scene.ts
-- [ ] T013 [US1] Implement streak recovery rewarded ad offer: show "Watch ad to save your {N}-day streak!" button when `dailyStreak > 3` and streak is at risk (lastPlayedDate not today/yesterday), guard with `streakRecoveryOffered` flag, call `recoverStreak()` on ad completion in src/adapters/phaser/gameover-scene.ts
-- [ ] T014 [US1] Add integration test for streak recovery flow (offer shown when streak at risk, hidden after use, recoverStreak preserves streak) in tests/integration/streak.test.ts
+- [x] T011 [US1] Show streak bonus HUD notification ("+{bonus} streak bonus") on `streak-bonus-applied` event, fade after 1.5s in src/adapters/phaser/hud.ts
+- [x] T012 [US1] Display streak badge ("🔥 {N}-day streak") below score on game-over screen when `dailyStreak > 1` in src/adapters/phaser/gameover-scene.ts
+- [x] T013 [US1] Implement streak recovery rewarded ad offer: show "Watch ad to save your {N}-day streak!" button when `dailyStreak > 3` and streak is at risk (lastPlayedDate not today/yesterday), guard with `streakRecoveryOffered` flag, call `recoverStreak()` on ad completion in src/adapters/phaser/gameover-scene.ts
+- [x] T014 [US1] Add integration test for streak recovery flow (offer shown when streak at risk, hidden after use, recoverStreak preserves streak) in tests/integration/streak.test.ts
 
 **Checkpoint**: Streak engagement fully functional — players see streak, get bonus, can recover streak via ad.
 
@@ -77,10 +77,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T015 [P] [US2] Implement `showBanner()` (AdMob.showBanner with ADAPTIVE_BANNER, BOTTOM_CENTER, adId from env) and `hideBanner()` (AdMob.hideBanner) with try/catch logging in src/adapters/ads/native-ad-adapter.ts
-- [ ] T016 [P] [US2] Implement `showBanner()` (create positioned DOM div at bottom) and `hideBanner()` (remove DOM div) as web simulation in src/adapters/ads/web-ad-adapter.ts
-- [ ] T017 [US2] Call `adService.showBanner()` in game-over scene `create()` method in src/adapters/phaser/gameover-scene.ts
-- [ ] T018 [US2] Call `adService.hideBanner()` in play-scene `create()` method to clear banner on gameplay start in src/adapters/phaser/play-scene.ts
+- [x] T015 [P] [US2] Implement `showBanner()` (AdMob.showBanner with ADAPTIVE_BANNER, BOTTOM_CENTER, adId from env) and `hideBanner()` (AdMob.hideBanner) with try/catch logging in src/adapters/ads/native-ad-adapter.ts
+- [x] T016 [P] [US2] Implement `showBanner()` (create positioned DOM div at bottom) and `hideBanner()` (remove DOM div) as web simulation in src/adapters/ads/web-ad-adapter.ts
+- [x] T017 [US2] Call `adService.showBanner()` in game-over scene `create()` method in src/adapters/phaser/gameover-scene.ts
+- [x] T018 [US2] Call `adService.hideBanner()` in play-scene `create()` method to clear banner on gameplay start in src/adapters/phaser/play-scene.ts
 
 **Checkpoint**: Banner ad displays on game-over, hides on play — passive revenue active.
 
@@ -96,8 +96,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T019 [P] [US3] Apply enemy type tints in `enemy-spawned` handler: standard=no tint, drifter=0x4488ff, armored=0xffaa44, speeder=0xff4444 using `sprite.setTint()` at spawn time in src/adapters/phaser/play-scene.ts
-- [ ] T020 [P] [US3] Add speeder spawn warning: on `enemy-spawned` with `enemyType === 'speeder'`, create red flash indicator at spawn x-position at top of screen, fade/destroy over 300ms in src/adapters/phaser/play-scene.ts
+- [x] T019 [P] [US3] Apply enemy type tints in `enemy-spawned` handler: standard=no tint, drifter=0x4488ff, armored=0xffaa44, speeder=0xff4444 using `sprite.setTint()` at spawn time in src/adapters/phaser/play-scene.ts
+- [x] T020 [P] [US3] Add speeder spawn warning: on `enemy-spawned` with `enemyType === 'speeder'`, create red flash indicator at spawn x-position at top of screen, fade/destroy over 300ms in src/adapters/phaser/play-scene.ts
 
 **Checkpoint**: Enemy types visually distinct — players can immediately recognize threat levels.
 
@@ -113,8 +113,8 @@
 
 ### Implementation for User Story 4
 
-- [ ] T021 [P] [US4] Display "WAVE {level}" centered flash text on `difficulty-increased` event, fade after 1.5s using Phaser tween in src/adapters/phaser/play-scene.ts
-- [ ] T022 [US4] Show session stats on game-over screen: best combo multiplier (`run.bestComboMultiplier`) and highest wave reached (`run.currentDifficultyLevel`) below score section in src/adapters/phaser/gameover-scene.ts
+- [x] T021 [P] [US4] Display "WAVE {level}" centered flash text on `difficulty-increased` event, fade after 1.5s using Phaser tween in src/adapters/phaser/play-scene.ts
+- [x] T022 [US4] Show session stats on game-over screen: best combo multiplier (`run.bestComboMultiplier`) and highest wave reached (`run.currentDifficultyLevel`) below score section in src/adapters/phaser/gameover-scene.ts
 
 **Checkpoint**: Players see wave progress and end-of-run stats — better performance awareness.
 
@@ -130,7 +130,7 @@
 
 ### Implementation for User Story 5
 
-- [ ] T023 [US5] Implement tap detection in pointerup handler: if `pointer.getDuration() < 150` and distance < 10px, lerp player sprite to `pointer.x` over 100ms using `this.tweens.add()`; coexists with existing drag handler in src/adapters/phaser/play-scene.ts
+- [x] T023 [US5] Implement tap detection in pointerup handler: if `pointer.getDuration() < 150` and distance < 10px, lerp player sprite to `pointer.x` over 100ms using `this.tweens.add()`; coexists with existing drag handler in src/adapters/phaser/play-scene.ts
 
 **Checkpoint**: Tap-to-move works alongside drag — both input methods coexist.
 
@@ -146,8 +146,8 @@
 
 ### Implementation for User Story 6
 
-- [ ] T024 [US6] Add "Watch ad for bonus shield?" button on game-over screen, shown only when `runIndex > 0`, next to retry button (≥48×48px touch target) in src/adapters/phaser/gameover-scene.ts
-- [ ] T025 [US6] On shield ad completion, call `engine.grantBonusLife()` after `startNewRun()` but before first `step()` to set remainingLives to maxLives+1 in src/adapters/phaser/gameover-scene.ts
+- [x] T024 [US6] Add "Watch ad for bonus shield?" button on game-over screen, shown only when `runIndex > 0`, next to retry button (≥48×48px touch target) in src/adapters/phaser/gameover-scene.ts
+- [x] T025 [US6] On shield ad completion, call `engine.grantBonusLife()` after `startNewRun()` but before first `step()` to set remainingLives to maxLives+1 in src/adapters/phaser/gameover-scene.ts
 
 **Checkpoint**: Optional shield ad offering works — players can choose extra protection.
 
@@ -157,10 +157,10 @@
 
 **Purpose**: Validate all NFRs and prepare for release.
 
-- [ ] T026 [P] Verify NFR-01: run full CI gate — `npx tsc --noEmit`, `npx vitest run`, `npm run lint`, `npm run build` all pass
-- [ ] T027 [P] Verify NFR-04 and NFR-06: confirm all ad placements are at natural breaks (game-over only), banner does not overlap interactive elements or reduce touch targets below 48×48px
-- [ ] T028 Run quickstart.md validation scenarios (streak bonus, enemy tints, wave labels, banner ad, streak recovery)
-- [ ] T029 Version bump in package.json; `npx cap sync android` to sync native project
+- [x] T026 [P] Verify NFR-01: run full CI gate — `npx tsc --noEmit`, `npx vitest run`, `npm run lint`, `npm run build` all pass
+- [x] T027 [P] Verify NFR-04 and NFR-06: confirm all ad placements are at natural breaks (game-over only), banner does not overlap interactive elements or reduce touch targets below 48×48px
+- [x] T028 Run quickstart.md validation scenarios (streak bonus, enemy tints, wave labels, banner ad, streak recovery)
+- [x] T029 Version bump in package.json; `npx cap sync android` to sync native project
 
 **Checkpoint**: All features validated, CI green, ready for release.
 
