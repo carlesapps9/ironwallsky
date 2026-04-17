@@ -40,6 +40,33 @@ export function createStorageAdapter(): StorageAdapter {
   }
 
   /**
+   * Returns true for a non-empty ISO date string (YYYY-MM-DD prefix) that
+   * parses to a valid date; also accepts '' (never played).
+   */
+  function isValidDateString(s: string): boolean {
+    if (s === '') return true;
+    return /^\d{4}-\d{2}-\d{2}/.test(s) && !isNaN(new Date(s).getTime());
+  }
+
+  /**
+   * Sanitizes untrusted values loaded from storage.
+   * Guards against NaN/Infinity in numeric fields and malformed date strings
+   * that would corrupt streak arithmetic or inflate the displayed high score (OWASP A03).
+   */
+  function sanitizeRecord(record: HighScoreRecord): HighScoreRecord {
+    return {
+      ...record,
+      bestScore: Number.isFinite(record.bestScore) && record.bestScore >= 0
+        ? Math.floor(record.bestScore) : 0,
+      dailyStreak: Number.isFinite(record.dailyStreak) && record.dailyStreak >= 0
+        ? Math.floor(record.dailyStreak) : 0,
+      dateAchieved:                isValidDateString(record.dateAchieved)                ? record.dateAchieved                : '',
+      lastPlayedDate:              isValidDateString(record.lastPlayedDate)              ? record.lastPlayedDate              : '',
+      dailyChallengeCompletedDate: isValidDateString(record.dailyChallengeCompletedDate) ? record.dailyChallengeCompletedDate : '',
+    };
+  }
+
+  /**
    * Migrates a v1 HighScoreRecord (no streak fields) to v2 by applying
    * zero-value defaults for the three new fields. Returns the record unchanged
    * if it already has v2 fields.
@@ -60,7 +87,7 @@ export function createStorageAdapter(): StorageAdapter {
       if (!raw) return null;
       const parsed = JSON.parse(raw) as HighScoreRecord;
       if (typeof parsed.bestScore === 'number' && typeof parsed.dateAchieved === 'string') {
-        return migrateRecord(parsed);
+        return sanitizeRecord(migrateRecord(parsed));
       }
       return null;
     } catch {
@@ -99,7 +126,7 @@ export function createStorageAdapter(): StorageAdapter {
         const request = store.get('highscore');
         request.onsuccess = () => {
           const raw = request.result ?? null;
-          resolve(raw ? migrateRecord(raw as HighScoreRecord) : null);
+          resolve(raw ? sanitizeRecord(migrateRecord(raw as HighScoreRecord)) : null);
         };
         request.onerror = () => resolve(null);
       });

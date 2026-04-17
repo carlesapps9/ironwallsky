@@ -33,11 +33,35 @@ async function initRemoteConfig(): Promise<void> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const remote = await response.json() as Record<string, unknown>;
 
-    // Merge only known top-level keys (type guard) into the live engine config
+    // Merge only known top-level keys (type guard) into the live engine config.
+    // Also clamp numeric fields to safe ranges so a compromised endpoint cannot
+    // push values like maxLives:9999 or interstitialCadence:0 (OWASP A03).
+    const NUMERIC_BOUNDS: Record<string, [number, number]> = {
+      maxLives:              [1,    10],
+      autoFireRateMs:        [50,   5_000],
+      baseEnemySpeed:        [10,   1_000],
+      baseEnemyHealth:       [1,    50],
+      maxSimultaneousEnemies:[1,    100],
+      maxDifficultyLevel:    [1,    50],
+      interstitialCadence:   [1,    20],
+      adTimeoutMs:           [1_000, 30_000],
+      comboMultiplierCap:    [1.0,  10.0],
+    };
+
     const liveConfig = engine.getState().config as unknown as Record<string, unknown>;
     const knownKeys = new Set(Object.keys(DEFAULT_CONFIG));
     for (const [key, value] of Object.entries(remote)) {
-      if (knownKeys.has(key) && typeof value === typeof (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key]) {
+      if (!knownKeys.has(key)) continue;
+      if (typeof value !== typeof (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key]) continue;
+      if (typeof value === 'number') {
+        const bounds = NUMERIC_BOUNDS[key];
+        if (bounds) {
+          const [lo, hi] = bounds;
+          liveConfig[key] = Math.max(lo, Math.min(hi, value as number));
+        } else {
+          liveConfig[key] = value;
+        }
+      } else {
         liveConfig[key] = value;
       }
     }
@@ -138,9 +162,13 @@ GameOverScene.prototype.init = function (data: unknown) {
 // Launch the game
 const game = new Phaser.Game(phaserConfig);
 
-// Expose to Playwright for screenshot automation (harmless in production)
-(window as unknown as Record<string, unknown>).__game   = game;
-(window as unknown as Record<string, unknown>).__engine = engine;
+// Expose to Playwright for screenshot automation — development builds only.
+// Exposing the engine on window in production lets any ad script or extension
+// call grantScoreDouble(), grantRevive() etc. directly (OWASP A01).
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__game   = game;
+  (window as unknown as Record<string, unknown>).__engine = engine;
+}
 
 // Wire analytics (US4)
 const analytics = createAnalyticsAdapter();

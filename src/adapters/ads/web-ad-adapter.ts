@@ -68,6 +68,12 @@ export function createWebAdAdapter(): AdService {
   }
 
   function createAdOverlay(divId: string, onDismiss?: () => void): HTMLDivElement {
+    // Remove any stale overlay with the same ID before creating a new one.
+    // Prevents a second timer from firing while the first overlay is still visible,
+    // which would leave an orphaned DOM element (OWASP A08 integrity).
+    const stale = document.getElementById(divId);
+    if (stale) stale.remove();
+
     const overlay = document.createElement('div');
     overlay.id = divId;
     overlay.style.cssText = `
