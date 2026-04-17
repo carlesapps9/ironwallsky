@@ -235,13 +235,21 @@ async function initAds(): Promise<void> {
       DEFAULT_CONFIG.adTimeoutMs,
     );
 
-    // Show interstitial at game-over cadence
+    // Show interstitial at game-over cadence; pre-warm rewarded ad for instant show.
     engine.events.on('run-phase-changed', (payload) => {
+      if (payload.to === 'playing') {
+        // Cancel any interstitial still preparing from game-over so it cannot
+        // fire mid-game after the user already started playing (race condition fix).
+        cadence.cancel();
+      }
       if (payload.to === 'game-over') {
         const runIndex = engine.getState().run.runIndex;
         cadence.onRunComplete(runIndex).then((result) => {
           analytics.track({ name: 'interstitial', params: { result } });
         });
+        // Pre-warm the rewarded ad immediately so it shows without delay
+        // when the user clicks "Watch Ad to Continue / Revive / Double".
+        void adService!.preloadRewarded().catch(() => {});
       }
     });
 
