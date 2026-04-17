@@ -24,6 +24,11 @@ let adService: AdService | null = null;
 async function initRemoteConfig(): Promise<void> {
   const url = DEFAULT_CONFIG.remoteConfigUrl;
   if (!url) return;
+  // Enforce HTTPS to prevent MITM config tampering (OWASP A05)
+  if (!url.startsWith('https://')) {
+    console.warn('[RemoteConfig] Skipped — URL must use HTTPS');
+    return;
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -61,11 +66,14 @@ async function initRemoteConfig(): Promise<void> {
         } else {
           liveConfig[key] = value;
         }
+      } else if (typeof value === 'string') {
+        // Cap string length to prevent oversized payloads (e.g. share template injection)
+        liveConfig[key] = (value as string).slice(0, 500);
       } else {
         liveConfig[key] = value;
       }
     }
-    console.log('[RemoteConfig] Merged remote config successfully');
+    if (import.meta.env.DEV) console.log('[RemoteConfig] Merged remote config successfully');
   } catch (err) {
     const reason = err instanceof Error && err.name === 'AbortError' ? 'timeout' : 'fetch error';
     console.log(`[RemoteConfig] Skipped (${reason}) — using defaults`);
@@ -89,7 +97,7 @@ async function initStorage(): Promise<void> {
     if (saved.dailyStreak !== undefined) state.highScore.dailyStreak = saved.dailyStreak;
     if (saved.lastPlayedDate !== undefined) state.highScore.lastPlayedDate = saved.lastPlayedDate;
     if (saved.dailyChallengeCompletedDate !== undefined) state.highScore.dailyChallengeCompletedDate = saved.dailyChallengeCompletedDate;
-    console.log(`[Storage] Loaded high score: ${saved.bestScore}`);
+    if (import.meta.env.DEV) console.log(`[Storage] Loaded high score: ${saved.bestScore}`);
   }
 
   engine.events.on('high-score-beaten', (payload) => {
@@ -237,7 +245,7 @@ async function initAds(): Promise<void> {
       }
     });
 
-    console.log('[Ads] Ad service ready');
+    if (import.meta.env.DEV) console.log('[Ads] Ad service ready');
   } catch {
     console.log('[Ads] Ad initialization skipped');
   }

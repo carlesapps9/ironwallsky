@@ -53,7 +53,10 @@ export function createNativeAdAdapter(): AdService {
       }
 
       initialized = true;
-      console.log(`[Ads] Native AdMob initialized (testing=${String(isTesting)}, platform=${platform})`);
+      // Log only in dev builds — platform name reveals device info in production (OWASP A09)
+      if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+        console.log(`[Ads] Native AdMob initialized (testing=${String(isTesting)}, platform=${platform})`);
+      }
     } catch (err) {
       console.warn('[Ads] Native AdMob init failed:', err);
       initialized = false;
