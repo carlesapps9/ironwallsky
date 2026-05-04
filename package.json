@@ -25,7 +25,7 @@
     "@capacitor/android": "^6.2.1",
     "@capacitor/core": "^6.0.0",
     "@capacitor/splash-screen": "^6.0.4",
-    "phaser": "^3.80.0"
+    "phaser": "^4.1.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
